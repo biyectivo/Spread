@@ -47,7 +47,6 @@
 
 #endregion
 
-
 #region Functions
 
 	#region Helpers
@@ -357,7 +356,7 @@
 					var _output = __spread_regex_json(game_save_id+"__spread_json_input.json", game_save_id+"__spread_json_output.json");
 			
 					// Read result from file
-					if (!file_exists(game_save_id+"__spread_json_output.json"))		__spread_log("error while parsing app metadata", SPREAD_MESSAGE_LEVEL.ERROR);
+					if (!file_exists(game_save_id+"__spread_json_output.json"))		__spread_log("Error while parsing app metadata", SPREAD_MESSAGE_LEVEL.ERROR);
 			
 					var _buffer = buffer_create(1, buffer_grow, 1);
 					_buffer = buffer_load(game_save_id+"__spread_json_output.json");
@@ -372,6 +371,123 @@
 				
 				#endregion
 				
+				
+				#region Load workbook sheets
+			
+					var _t = get_timer();
+			
+					// Perform extractions and subs
+					var _json = [
+						{
+							"instruction": "findall", // calculation mode
+							"string_file": game_save_id+_folder+"/xl/workbook.xml",
+							"pattern": "( calcMode=\"[^\"]+\")"
+						},
+						{
+							"instruction": "sub",
+							"string_file": game_save_id+_folder+"/xl/workbook.xml",
+							"pattern": "(\"[^\"]*\") ",
+							"replacement": "${1},"
+						},
+						{
+							"instruction": "findall",
+							"string": "$PREV$",
+							"pattern": "<sheet ([^\/]+)/>"
+						},
+						{
+							"instruction": "sub",
+							"string": "$PREV$",
+							"pattern": "=",
+							"replacement": ":"
+						},
+						{
+							"instruction": "sub",
+							"string": "$PREV$",
+							"pattern": "([^\",]+):",
+							"replacement": "\"$1\":"
+						},
+				
+					];
+					var _json_regex = json_stringify(_json);
+			
+					var _buffer = buffer_create(1, buffer_grow, 1);
+					buffer_write(_buffer, buffer_text, _json_regex);
+					buffer_save(_buffer, game_save_id+"__spread_json_input.json");
+					buffer_delete(_buffer);
+			
+					var _output = __spread_regex_json(game_save_id+"__spread_json_input.json", game_save_id+"__spread_json_output.json");
+			
+					// Read result from file
+					if (!file_exists(game_save_id+"__spread_json_output.json"))		__spread_log("Error while parsing sheet names", SPREAD_MESSAGE_LEVEL.ERROR);
+			
+					var _buffer = buffer_create(1, buffer_grow, 1);
+					_buffer = buffer_load(game_save_id+"__spread_json_output.json");
+					var  _sheets = json_parse(buffer_read(_buffer, buffer_text));
+					buffer_delete(_buffer);
+			
+					// Calculation mode
+					global.Spread.connections[$ _connection_name].calculation_mode = (array_length(_sheets[0]) == 0) ? "auto" : _sheets[0][0];
+				
+					// Sheets
+					array_foreach(_sheets[array_length(_sheets)-1], method({_connection_name}, function(_elem) {
+						var _sheet = json_parse("{"+_elem+"}");			
+						global.Spread.connections[$ _connection_name].sheets[$ _sheet.name] = {						
+							workbook_sheet_id: real(_sheet.sheetId),
+							sheet_id: _sheet[$"r:id"],
+						};
+					}));
+				
+					// Get corresponding sheet XML file (from rels file)
+					var _buffer = buffer_create(1, buffer_grow, 1);
+					_buffer = buffer_load(_folder+"/xl/_rels/workbook.xml.rels");
+					var _contents = buffer_read(_buffer, buffer_text);
+					buffer_delete(_buffer);
+				
+					// Perform extractions
+					var _json = [
+						{
+							"instruction": "findall", // relationships
+							"string_file": game_save_id+_folder+"/xl/_rels/workbook.xml.rels",
+							"pattern": "Id=(\"[^\"]+\").*?Target=(\"[^\"]+\")"
+						},
+					];
+					var _json_regex = json_stringify(_json);
+			
+					var _buffer = buffer_create(1, buffer_grow, 1);
+					buffer_write(_buffer, buffer_text, _json_regex);
+					buffer_save(_buffer, game_save_id+"__spread_json_input.json");
+					buffer_delete(_buffer);
+			
+					var _output = __spread_regex_json(game_save_id+"__spread_json_input.json", game_save_id+"__spread_json_output.json");
+			
+					// Read result from file
+					if (!file_exists(game_save_id+"__spread_json_output.json"))		__spread_log("Error while parsing sheet relationships", SPREAD_MESSAGE_LEVEL.ERROR);
+				
+					var _buffer = buffer_create(1, buffer_grow, 1);
+					_buffer = buffer_load(game_save_id+"__spread_json_output.json");
+					var  _sheet_rels = json_parse(buffer_read(_buffer, buffer_text));
+					buffer_delete(_buffer);
+				
+				
+					// Assign worksheet xml file name to each sheet
+					var _sheets = struct_get_names(global.Spread.connections[$ _connection_name].sheets);
+					for (var _i=0, _n=array_length(_sheets); _i<_n; _i++) {
+						var _key = _sheets[_i];
+						var _rid = global.Spread.connections[$ _connection_name].sheets[$ _key].sheet_id;
+					
+						var _idx = array_find_index(_sheet_rels[0], method({_rid}, function(_value) {
+							return _value[0] == string($"\"{_rid}\"");
+						}));
+					
+						global.Spread.connections[$ _connection_name].sheets[$ _key][$ "file"] = string_replace_all(_sheet_rels[0][_idx][1], chr(34), "");
+					}
+				
+				
+					__spread_log(string($"Found the following sheets in the workbook: {struct_get_names(global.Spread.connections[$ _connection_name].sheets)}"), SPREAD_MESSAGE_LEVEL.INFO);
+					__spread_log(string($"Parsed workbook sheets in {(get_timer()-_t)/1000000} seconds"), SPREAD_MESSAGE_LEVEL.INFO);
+				
+				#endregion
+			
 				
 				if (file_exists(game_save_id+"__spread_json_input.json"))	file_delete(game_save_id+"__spread_json_input.json");
 				if (file_exists(game_save_id+"__spread_json_output.json"))	file_delete(game_save_id+"__spread_json_output.json");
