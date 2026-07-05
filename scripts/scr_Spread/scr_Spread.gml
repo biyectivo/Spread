@@ -541,7 +541,7 @@
 			 * @param	{string}	_connection_name	The unique ID of the connection
 			 */
 			function spread_disconnect(_connection_name) {
-				if (!struct_exists(global.Spread.connections, _connection_name))		__spread_log(string($"Connection {_connection_name} does not exist"), "ERROR");
+				if (!struct_exists(global.Spread.connections, _connection_name))		__spread_log(string($"Connection {_connection_name} does not exist"), SPREAD_MESSAGE_LEVEL.ERROR);
 				var _conn = global.Spread.connections[$ _connection_name];
 				if (_conn.connection_type == "xlsx") {
 					if (directory_exists(_conn.connection_cache_folder)) directory_destroy(_conn.connection_cache_folder);
@@ -549,6 +549,186 @@
 				
 				__spread_log($"Disconnected from connection {_connection_name} (source file: {_conn.connection_source})", SPREAD_MESSAGE_LEVEL.INFO);
 			}
+			
+			
+			
+			/**
+			 * @desc	Fetches a range from a sheet of an active spreadsheet connection
+			 * @param	{string}	_table_name_id				a unique identifier for the table (e.g. tbl_potions, etc.)
+			 * @param	{string}	_connection_id				the connection id
+			 * @param	{string}	_sheet_id					the worksheet name
+			 * @param	{string}	_range_formula_or_name		the range formula (e.g. B2:U67) or named range (e.g. RangeItems) to fetch
+			 * @return	{struct}	a Spread table
+			 */
+			function spread_define_table(_table_name_id, _connection_id, _sheet_id, _range_formula_or_name) {
+				if (array_get_index(struct_get_names(global.Spread.tables), _table_name_id) != -1)	__spread_log(string($"Table name already exists, {_table_name_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
+				if (array_get_index(struct_get_names(global.Spread.connections), _connection_id) == -1)	__spread_log(string($"Connection invalid or not established with spreadsheet, {_connection_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
+				if (array_get_index(struct_get_names(global.Spread.connections[$ _connection_id].sheets), _sheet_id) == -1)	__spread_log(string($"Sheet {_sheet_id} not in spreadsheet {_connection_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
+			
+				var _t = get_timer();
+			
+				// Open rel sheet XML
+				var _conn = global.Spread.connections[$ _connection_id];
+				var _sha = SPREAD_CACHE_VERSIONS ? "_"+_conn.source_sha1 : ""
+				var _folder = string($"{_conn.connection_source}{_sha}/");
+				var _sheet_file = _conn.sheets[$ _sheet_id].file;
+				var _file = string($"xl/{_sheet_file}");
+			
+				var _t = get_timer();
+			
+				var _buffer = buffer_create(1, buffer_grow, 1);
+				_buffer = buffer_load(_folder+_file);		
+				var _contents = buffer_read(_buffer, buffer_text);
+				buffer_delete(_buffer);
+			
+				// Perform range extractions
+				var _json = [					
+					{
+						"instruction": "sub", // get rid of "empty" cells (due to merged ranges mainly)
+						"string_file": game_save_id+_folder+_file,
+						"pattern": "<c ([^>]+)/>",
+						"replacement": ""
+					},
+					{
+						"instruction": "findall", // get range and content of each range
+						"string": "$PREV$",
+						"pattern": "<c (?P<attrs>[^>/]*?)(?:/>|>(?P<body>.*?)</c>)"
+					},
+					{
+						"instruction": "sub", // values
+						"string": "$PREV$",
+						"pattern": "<v>([^<]*)</v>",
+						"replacement": "\"v\"=$1 "
+					},
+					{
+						"instruction": "sub", // formulas
+						"string": "$PREV$",
+						"pattern": "<f([^>]*)(?:/>|>([^<]*)</f>)",
+						"replacement": "\"f\"=\"$2\" $1 "
+					},
+				];
+				var _json_regex = json_stringify(_json);
+			
+				var _buffer = buffer_create(1, buffer_grow, 1);
+				buffer_write(_buffer, buffer_text, _json_regex);
+				buffer_save(_buffer, game_save_id+"__spread_json_input.json");
+				buffer_delete(_buffer);
+			
+				var _output = __spread_regex_json(game_save_id+"__spread_json_input.json", game_save_id+"__spread_json_output.json");
+			
+				// Read result from file
+				if (!file_exists(game_save_id+"__spread_json_output.json"))		__spread_log($"Error while parsing range {_range_formula_or_name} from sheet {_sheet_id}", SPREAD_MESSAGE_LEVEL.ERROR);
+			
+				var _buffer = buffer_create(1, buffer_grow, 1);
+				_buffer = buffer_load(game_save_id+"__spread_json_output.json");
+				var _range_data = buffer_read(_buffer, buffer_text);
+				buffer_delete(_buffer);
+			
+						
+				// Process ranges
+				_range_data = json_parse(_range_data);
+				_range_data = _range_data[array_length(_range_data)-1];
+			
+				var _ranges = {};
+			
+				for (var _i=0, _n=array_length(_range_data); _i<_n; _i++) {
+					var _data = string_replace_all(string_replace_all(string_replace_all(string_replace_all(_range_data[_i], chr(34), ""), "\\", ""), "[", ""), "]", "");
+					var _parts = string_split(_data, ",");
+				
+					if (array_length(_parts) != 2)	__spread_log($"Unexpected data found while fetching range {_range_formula_or_name} from sheet {_sheet_id}: {_data}", SPREAD_MESSAGE_LEVEL.ERROR);
+				
+					// Parse the metadata first...
+					var _range_metadata = string_split(_parts[0], " ");
+				
+					var _key = "";
+					for (var _j=0, _m=array_length(_range_metadata); _j<_m; _j++) {
+						var _key_value = string_split(_range_metadata[_j], "=");
+						switch(_key_value[0]) {
+							case "r":
+								_key = _key_value[1];
+								_ranges[$ _key] = {};
+								break;
+							case "t":
+								switch(_key_value[1]) {
+									case "s": //shared  string									
+									case "inlineStr": // inline
+									case "str": // formula that returns a string
+										_ranges[$ _key][$ "type"] = "string";
+										break;
+									case "b": // boolean
+										_ranges[$ _key][$ "type"] = "boolean";
+										break;
+									case "e": // error
+										_ranges[$ _key][$ "type"] = "error";
+										break;
+									case "d": // date
+										_ranges[$ _key][$ "type"] = "number"; // date, but its a number internally
+										break;
+								}
+								_ranges[$ _key][$ "raw_type"] = _key_value[1];
+							
+								break;
+							break;					
+							// ignore other tags						
+						}
+
+
+						// Default (no t tag) is number
+						if (!struct_exists(_ranges[$ _key], "type")) {
+							_ranges[$ _key][$ "type"] = "number";
+							_ranges[$ _key][$ "raw_type"] = "";							
+						}
+					
+					}
+				
+					// Now parse the values/formulas
+					var _range_value_formula = string_split(_parts[1], " ");
+					for (var _j=0, _m=array_length(_range_value_formula); _j<_m; _j++) {
+						var _tag_value = string_split(_range_value_formula[_j], "=");
+					
+						if (array_length(_tag_value) != 2) continue;
+										
+						var _tag = _tag_value[0];
+						switch(_tag) {
+							case "v": // actual value (or index of shared string)
+								if (_ranges[$ _key][$ "raw_type"] == "s") { // shared string
+									var _val = global.Spread.connections[$ _connection_id].shared_strings[ real(_tag_value[1]) ];								
+								}
+								else if (_ranges[$ _key][$ "raw_type"] == "str") { // string result
+									var _val = _tag_value[1];
+								}
+								else if (_ranges[$ _key][$ "raw_type"] == "b") { // bool
+									var _val = bool(_tag_value[1]);
+								}
+								// TO DO: inline strings
+								else { // get value (can be from formula or direct)
+									var _val = real(_tag_value[1]);
+								}
+								_ranges[$ _key][$ "value"] = _val;
+								break;
+							case "f": // formula
+								_ranges[$ _key][$ "formula"] = _tag_value[1];
+								break;
+							// TO DO: ref= si=	
+						}				
+					}
+				}
+			
+			
+				//if (file_exists(game_save_id+"__spread_json_input.json"))	file_delete(game_save_id+"__spread_json_input.json");
+				//if (file_exists(game_save_id+"__spread_json_output.json"))	file_delete(game_save_id+"__spread_json_output.json");
+			
+			
+				global.Spread.connections[$ _connection_id].tables[$ _table_name_id] = _ranges;
+			
+				__spread_log(string($"Loaded table {_table_name_id} from range {_range_formula_or_name} of sheet {_sheet_id} of connection {_connection_id}, in {(get_timer()-_t)/1000000} seconds"), , SPREAD_MESSAGE_LEVEL.INFO);
+			}
+			
+			
+			
+			
+			
+			
 	
 		#endregion	
 
