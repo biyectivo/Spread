@@ -253,7 +253,83 @@
 					sheets: {},
 					tables: {},
 				};
+				
+				
+				
+				#region Load workbook metadata
 			
+					var _t = get_timer();
+			
+					// Perform extractions and subs
+					var _json = [					
+						{
+							"instruction": "findall", // title
+							"string_file": game_save_id+_folder+"/docProps/core.xml",
+							"pattern": "<dc:title[^>]*>([^<]*)</dc:title>"
+						},
+						{
+							"instruction": "findall", // creator
+							"string_file": game_save_id+_folder+"/docProps/core.xml",
+							"pattern": "<dc:creator[^>]*>([^<]*)</dc:creator>"
+						},
+						{
+							"instruction": "findall", // last modified by
+							"string_file": game_save_id+_folder+"/docProps/core.xml",
+							"pattern": "<cp:lastModifiedBy[^>]*>([^<]*)</cp:lastModifiedBy>"
+						},
+						{
+							"instruction": "findall", // date created
+							"string_file": game_save_id+_folder+"/docProps/core.xml",
+							"pattern": "<dcterms:created[^>]*>([^<]*)</dcterms:created>"
+						},
+						{
+							"instruction": "findall", // date modified
+							"string_file": game_save_id+_folder+"/docProps/core.xml",
+							"pattern": "<dcterms:modified[^>]*>([^<]*)</dcterms:modified>"
+						},
+						{
+							"instruction": "findall", // subject
+							"string_file": game_save_id+_folder+"/docProps/core.xml",
+							"pattern": "<dc:subject[^>]*>([^<]*)</dc:subject>"
+						},
+						{
+							"instruction": "findall", // description
+							"string_file": game_save_id+_folder+"/docProps/core.xml",
+							"pattern": "<dc:description[^>]*>([^<]*)</dc:description>"
+						},	
+					];
+					var _json_regex = json_stringify(_json);
+			
+					var _buffer = buffer_create(1, buffer_grow, 1);
+					buffer_write(_buffer, buffer_text, _json_regex);
+					buffer_save(_buffer, game_save_id+"__spread_json_input.json");
+					buffer_delete(_buffer);
+			
+					var _output = __spread_regex_json(game_save_id+"__spread_json_input.json", game_save_id+"__spread_json_output.json");
+			
+					// Read result from file
+					if (!file_exists(game_save_id+"__spread_json_output.json"))		__spread_log("Error while parsing workbook metadata", SPREAD_MESSAGE_LEVEL.ERROR);
+			
+					var _buffer = buffer_create(1, buffer_grow, 1);
+					_buffer = buffer_load(game_save_id+"__spread_json_output.json");
+					var  _metadata = json_parse(buffer_read(_buffer, buffer_text));
+					buffer_delete(_buffer);
+			
+					// Assign metadata
+					if (array_length(_metadata[0]) > 0)		global.Spread.connections[$ _connection_name].title = _metadata[0][0];
+					if (array_length(_metadata[1]) > 0)		global.Spread.connections[$ _connection_name].creator = _metadata[1][0];
+					if (array_length(_metadata[2]) > 0)		global.Spread.connections[$ _connection_name].last_modified_by = _metadata[2][0];
+					if (array_length(_metadata[3]) > 0)		global.Spread.connections[$ _connection_name].date_created = _metadata[3][0];
+					if (array_length(_metadata[4]) > 0)		global.Spread.connections[$ _connection_name].date_modified = _metadata[4][0];
+					if (array_length(_metadata[5]) > 0)		global.Spread.connections[$ _connection_name].subject = _metadata[5][0];
+					if (array_length(_metadata[6]) > 0)		global.Spread.connections[$ _connection_name].description = _metadata[6][0];
+			
+					__spread_log(string($"Parsed workbook metadata in {(get_timer()-_t)/1000000} seconds"), SPREAD_MESSAGE_LEVEL.INFO);
+				
+				#endregion
+		
+				
+				
 				if (file_exists(game_save_id+"__spread_json_input.json"))	file_delete(game_save_id+"__spread_json_input.json");
 				if (file_exists(game_save_id+"__spread_json_output.json"))	file_delete(game_save_id+"__spread_json_output.json");
 			
