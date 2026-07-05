@@ -372,7 +372,7 @@
 				#endregion
 				
 				
-				#region Load workbook sheets
+				#region Load workbook sheets metadata
 			
 					var _t = get_timer();
 			
@@ -487,7 +487,44 @@
 					__spread_log(string($"Parsed workbook sheets in {(get_timer()-_t)/1000000} seconds"), SPREAD_MESSAGE_LEVEL.INFO);
 				
 				#endregion
+
+				
+				#region Load shared strings
 			
+					var _t = get_timer();
+			
+					// Perform extractions and subs
+					var _json = [					
+						{
+							"instruction": "findall", // strings
+							"string_file": game_save_id+_folder+"/xl/sharedStrings.xml",
+							"pattern": "<si><t[^>]*?>([^<]+)</t></si>"
+						}
+					];
+					var _json_regex = json_stringify(_json);
+			
+					var _buffer = buffer_create(1, buffer_grow, 1);
+					buffer_write(_buffer, buffer_text, _json_regex);
+					buffer_save(_buffer, game_save_id+"__spread_json_input.json");
+					buffer_delete(_buffer);
+			
+					var _output = __spread_regex_json(game_save_id+"__spread_json_input.json", game_save_id+"__spread_json_output.json");
+			
+					// Read result from file
+					if (!file_exists(game_save_id+"__spread_json_output.json"))		__spread_log("Error while parsing shared strings", SPREAD_MESSAGE_LEVEL.ERROR);
+			
+					var _buffer = buffer_create(1, buffer_grow, 1);
+					_buffer = buffer_load(game_save_id+"__spread_json_output.json");
+					var  _strings = json_parse(buffer_read(_buffer, buffer_text));
+					buffer_delete(_buffer);
+				
+					global.Spread.connections[$ _connection_name].shared_strings = _strings[0];
+				
+					__spread_log(string($"Parsed shared strings in {(get_timer()-_t)/1000000} seconds"), SPREAD_MESSAGE_LEVEL.INFO);
+				
+			
+				#endregion
+						
 				
 				if (file_exists(game_save_id+"__spread_json_input.json"))	file_delete(game_save_id+"__spread_json_input.json");
 				if (file_exists(game_save_id+"__spread_json_output.json"))	file_delete(game_save_id+"__spread_json_output.json");
