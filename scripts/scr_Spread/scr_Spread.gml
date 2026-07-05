@@ -2,46 +2,50 @@
 
 #macro		SPREAD_VERSION						"0.1"
 
-enum SPREAD_MODE {
-	DEV,
-	PROD
-}
+#region Enums 
 
-enum SPREAD_MESSAGE_LEVEL {
-	INFO,
-	WARNING,
-	ERROR,
-	SYSTEM
-}
+	enum SPREAD_MODE {
+		DEV,
+		PROD
+	}
 
-global.Spread = {};
-
-global.Spread[$ "config"] = {
-
-	mode: SPREAD_MODE.DEV,
-	maintain_data_on_invalid_refresh: true,
-	live_reload_enabled: true,
-	log_message_level: SPREAD_MESSAGE_LEVEL.INFO,
-
-};
-
-global.Spread.connections = {};
-global.Spread.tables = {};
+	enum SPREAD_MESSAGE_LEVEL {
+		INFO,
+		WARNING,
+		ERROR,
+		SYSTEM
+	}
+	
+#endregion
 
 
+#region Init and default config
 
-global.Spread[$ "config"] = {
+	global.Spread = {};
 
-	mode: global.Spread.enums.SPREAD_MODE.get("DEV"),
-	strict: true,
-	cache_enabled: true,
-	live_reload_enabled: true,
-	log_message_level: global.Spread.enums.SPREAD_MESSAGE_LEVEL.get("INFO"),
+	global.Spread.connections = {};
+	global.Spread.tables = {};
+	
+	
+	global.Spread[$ "config"] = {
 
-};
+		mode: SPREAD_MODE.DEV,
+		maintain_data_on_invalid_refresh: true,
+		live_reload_enabled: true,
+		log_message_level: SPREAD_MESSAGE_LEVEL.INFO,
 
-global.Spread.connections = {};
-global.Spread.tables = {};
+	};
+
+
+#endregion
+
+#region String version of enums
+
+	global.Spread.enums = {};
+	global.Spread.enums[$ "SPREAD_MODE"] = ["DEV", "PROD"];
+	global.Spread.enums[$ "MESSAGE_LEVEL"] = ["INFO", "WARNING", "ERROR", "SYSTEM"];
+
+#endregion
 
 
 #region Functions
@@ -56,8 +60,11 @@ global.Spread.tables = {};
 		 * @param	{bool}		[_exception_on_error]=true							if the level is ERROR, and this is true, it will throw an exception instead of just logging the message.
 		 */
 		function __spread_log(_message_text, _message_level=SPREAD_MESSAGE_LEVEL.SYSTEM, _exception_on_error=true) {
+			var _callstack = debug_get_callstack();
+			var _calling_from = string_replace_all( array_length(_callstack) == 1 ? _callstack[0] : _callstack[1] , "gml_Script", "");
+			_calling_from = string_split(_calling_from, ":")[0];
 			if (_message_level >= global.Spread.config.log_message_level) {
-				var _message = string($"{SPREAD_LOG_PREFIX} {_message_level}: {_message_text}");
+				var _message = string($"{SPREAD_LOG_PREFIX} ({global.Spread.enums[$ "MESSAGE_LEVEL"][_message_level]}):  {_calling_from}: 	{_message_text}");
 				if (_message_level == SPREAD_MESSAGE_LEVEL.ERROR && _exception_on_error) {
 					throw(_message);
 				}
@@ -162,7 +169,7 @@ global.Spread.tables = {};
 			 * @returns {string}	a stringified JSON array of the results
 			 */
 			function __spread_regex_json(_input_json_filename, _json_output_filename="") {
-				if (!file_exists(_input_json_filename))	__spread_log(string($"__spread_regex_json: File does not exist, {_input_json_filename}"), "ERROR");
+				if (!file_exists(_input_json_filename))	__spread_log(string($"__spread_regex_json: File does not exist, {_input_json_filename}"),  SPREAD_MESSAGE_LEVEL.ERROR);
 				var _process = string($"regex --json \"{_input_json_filename}\" \"{_json_output_filename}\"");
 			
 				var _pid = ProcessExecute(_process);
@@ -182,6 +189,97 @@ global.Spread.tables = {};
 		
 		#endregion
 	
+	#endregion
+
+	#region API
+	
+		#region XLSX
+	
+			/**
+			 * @desc	Establishes a connection to an XLSX file
+			 * @param	{string}	_filename				the filename. If Gamemaker is running sandboxed, the path relative to the datafiles/ folder; if not, the full path to the file
+			 * @param	{string}	_connection_name		a unique identifer to name the connection (e.g. "db_items", etc.)
+			 * @param	{bool}		[_force]=false			whether to conect again even if a cached connection exists
+			 * @returns {bool}		whether the connection was succcessful
+			 */
+			function spread_connect_xlsx(_filename, _connection_name, _force=false) {
+				if (struct_exists(global.Spread.connections, _connection_name))		__spread_log(string($"Connection already exists, {_connection_name}, type {global.Spread.connections[$ _connection_name].connection_type}, pointing to {global.Spread.connections[$ _connection_name].connection_source}"), SPREAD_MESSAGE_LEVEL.ERROR);
+				if (!file_exists(_filename))	__spread_log(string($"File does not exist, {_filename}"),  SPREAD_MESSAGE_LEVEL.ERROR);
+			
+			
+				// Get file SHA1
+				var _buffer = buffer_create(1, buffer_grow, 1);
+				_buffer = buffer_load(_filename);
+				var _sha1 = buffer_sha1(_buffer, 0, buffer_get_size(_buffer));
+				buffer_delete(_buffer);
+			
+				// Check if file has changed
+				if (SPREAD_CACHE_VERSIONS) {
+					var _folder = string($"{_filename}_{_sha1}/");
+			
+					if (directory_exists(_folder) && !_force)	{
+						__spread_log(string($"File {_filename} has not changed since last processing, and force was not specified. Skipping file update."),  SPREAD_MESSAGE_LEVEL.INFO);
+						exit;
+					}
+			
+					if (_force)	__spread_log(string($"Forced update of file {_filename} has been specified, regardless of whether file was changed. File processing will proceed."),  SPREAD_MESSAGE_LEVEL.INFO);
+				}
+				else { // force has no effect
+					var _folder = string($"{_filename}/");	
+					if (directory_exists(_folder)) directory_destroy(_folder);				
+				}
+			
+				// Unzip the XLSX
+				zip_unzip(_filename, _folder);
+			
+				if (!directory_exists(_folder))		__spread_log(string($"Could not process contents of XLSX spreadsheet, {_filename}"),  SPREAD_MESSAGE_LEVEL.ERROR);
+			
+				global.Spread.connections[$ _connection_name] = {
+					connection_type: "xlsx",
+					connection_source: _filename,
+					connection_cache_folder: _folder,
+					source_sha1: _sha1,
+					connection_established: date_datetime_string(date_current_datetime()),
+					title: undefined,
+					creator: undefined,
+					last_modified_by: undefined,
+					date_created: undefined,
+					date_modified: undefined,
+					subject: undefined,
+					description: undefined,
+					application: undefined,
+					application_version: undefined,
+					calculation_mode: undefined,
+					sheets: {},
+					tables: {},
+				};
+			
+				if (file_exists(game_save_id+"__spread_json_input.json"))	file_delete(game_save_id+"__spread_json_input.json");
+				if (file_exists(game_save_id+"__spread_json_output.json"))	file_delete(game_save_id+"__spread_json_output.json");
+			
+				__spread_log($"Connection named {_connection_name} successfully established to XLSX file {_filename}", SPREAD_MESSAGE_LEVEL.INFO);
+				show_debug_message(global.Spread.connections[$ _connection_name]);
+			
+				return true;
+			}
+			
+			
+			/**
+			 * @desc	Disconnects from an active Spread connection
+			 * @param	{string}	_connection_name	The unique ID of the connection
+			 */
+			function spread_disconnect(_connection_name) {
+				if (!struct_exists(global.Spread.connections, _connection_name))		__spread_log(string($"Connection {_connection_name} does not exist"), "ERROR");
+				var _conn = global.Spread.connections[$ _connection_name];
+				if (_conn.connection_type == "xlsx") {
+					if (directory_exists(_conn.connection_cache_folder)) directory_destroy(_conn.connection_cache_folder);
+				}
+				
+				__spread_log($"Disconnected from connection {_connection_name} (source file: {_conn.connection_source})", SPREAD_MESSAGE_LEVEL.INFO);
+			}
+	
+		#endregion	
+
 	#endregion
 
 #endregion
