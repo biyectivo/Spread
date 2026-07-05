@@ -10,15 +10,15 @@
   },
   "defaultScriptType":1,
   "Folders":[
+    {"$GMFolder":"","%Name":"Extensions","folderPath":"folders/Extensions.yy","name":"Extensions","resourceType":"GMFolder","resourceVersion":"2.0",},
     {"$GMFolder":"","%Name":"Spread","folderPath":"folders/Spread.yy","name":"Spread","resourceType":"GMFolder","resourceVersion":"2.0",},
+    {"$GMFolder":"","%Name":"Dependencies","folderPath":"folders/Spread/Dependencies.yy","name":"Dependencies","resourceType":"GMFolder","resourceVersion":"2.0",},
     {"$GMFolder":"","%Name":"Test","folderPath":"folders/Test.yy","name":"Test","resourceType":"GMFolder","resourceVersion":"2.0",},
   ],
   "ForcedPrefabProjectReferences":[],
   "IncludedFiles":[
     {"$GMIncludedFile":"","%Name":"~$My Spreadsheet.xlsx","CopyToMask":-1,"filePath":"datafiles","name":"~$My Spreadsheet.xlsx","resourceType":"GMIncludedFile","resourceVersion":"2.0",},
-    {"$GMIncludedFile":"","%Name":"My Spreadsheet.xlsx","CopyToMask":-1,"filePath":"datafiles","name":"My Spreadsheet.xlsx","resourceType":"GMIncludedFile","resourceVersion":"2.0",},
     {"$GMIncludedFile":"","%Name":"regex.exe","CopyToMask":-1,"filePath":"datafiles","name":"regex.exe","resourceType":"GMIncludedFile","resourceVersion":"2.0",},
-    {"$GMIncludedFile":"","%Name":"spread_roguelite_5000_testdata.xlsx","CopyToMask":-1,"filePath":"datafiles","name":"spread_roguelite_5000_testdata.xlsx","resourceType":"GMIncludedFile","resourceVersion":"2.0",},
   ],
   "isEcma":false,
   "LibraryEmitters":[],
@@ -27,6 +27,8 @@
   },
   "name":"Spread",
   "resources":[
+    {"id":{"name":"libxprocess","path":"extensions/libxprocess/libxprocess.yy",},},
+    {"id":{"name":"obj_Test","path":"objects/obj_Test/obj_Test.yy",},},
     {"id":{"name":"room_Test","path":"rooms/room_Test/room_Test.yy",},},
   ],
   "resourceType":"GMProject",
