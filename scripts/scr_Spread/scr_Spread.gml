@@ -328,6 +328,49 @@
 				
 				#endregion
 		
+		
+				#region Load spreadsheet program metadata
+			
+					var _t = get_timer();
+			
+			
+					// Perform extractions and subs
+					var _json = [					
+						{
+							"instruction": "findall", // application
+							"string_file": game_save_id+_folder+"/docProps/app.xml",
+							"pattern": "<Application[^>]*>([^<]*)</Application>"
+						},
+						{
+							"instruction": "findall", // creator
+							"string_file": game_save_id+_folder+"/docProps/app.xml",
+							"pattern": "<AppVersion[^>]*>([^<]*)</AppVersion>"
+						},
+					];
+					var _json_regex = json_stringify(_json);
+			
+					var _buffer = buffer_create(1, buffer_grow, 1);
+					buffer_write(_buffer, buffer_text, _json_regex);
+					buffer_save(_buffer, game_save_id+"__spread_json_input.json");
+					buffer_delete(_buffer);
+			
+					var _output = __spread_regex_json(game_save_id+"__spread_json_input.json", game_save_id+"__spread_json_output.json");
+			
+					// Read result from file
+					if (!file_exists(game_save_id+"__spread_json_output.json"))		__spread_log("error while parsing app metadata", SPREAD_MESSAGE_LEVEL.ERROR);
+			
+					var _buffer = buffer_create(1, buffer_grow, 1);
+					_buffer = buffer_load(game_save_id+"__spread_json_output.json");
+					var  _metadata = json_parse(buffer_read(_buffer, buffer_text));
+					buffer_delete(_buffer);
+			
+					// Assign metadata
+					if (array_length(_metadata[0]) > 0)		global.Spread.connections[$ _connection_name].application = _metadata[0][0];
+					if (array_length(_metadata[1]) > 0)		global.Spread.connections[$ _connection_name].application_version = _metadata[1][0];
+				
+					__spread_log(string($"Parsed app metadata in {(get_timer()-_t)/1000000} seconds"), SPREAD_MESSAGE_LEVEL.INFO);
+				
+				#endregion
 				
 				
 				if (file_exists(game_save_id+"__spread_json_input.json"))	file_delete(game_save_id+"__spread_json_input.json");
