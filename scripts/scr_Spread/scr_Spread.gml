@@ -158,7 +158,7 @@
 		 */
 		function __spread_log(_message_text, _message_level=SPREAD_MESSAGE_LEVEL.SYSTEM, _exception_on_error=true) {
 			var _callstack = debug_get_callstack();
-			var _calling_from = string_replace_all( array_length(_callstack) == 1 ? _callstack[0] : _callstack[1] , "gml_Script", "");
+			var _calling_from = string_replace_all( array_length(_callstack) == 1 ? _callstack[0] : _callstack[1] , "gml_Script_", "");
 			_calling_from = string_split(_calling_from, ":")[0];
 			if (_message_level >= global.Spread.config.log_message_level) {
 				var _message = string($"{SPREAD_LOG_PREFIX} ({global.Spread.enums[$ "MESSAGE_LEVEL"][_message_level]}):  {_calling_from}: 	{_message_text}");
