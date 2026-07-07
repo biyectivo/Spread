@@ -18,6 +18,104 @@
 	
 #endregion
 
+#region Range/address management
+		
+	/**
+	 * @desc	get properties (e.g. # of cols, # of rows) of a spreadsheet-like address or range
+	 * @param	{string}	_range		The address of the range (e.g. "h4", "C1004" "b1:AB220")
+	 * @param	{real}		[_idx]=0	The index to check, if the range is a range (0 for the top left cell, 1 for the bottom right cell)
+	 * @returns {struct}	a struct with col and row keys
+	 */
+	function __spread_range_get_properties(_range, _idx=0) {
+		var _rng = string_split(_range, ":");
+		if (array_length(_rng) == 1)	array_push(_rng, _rng[0]);
+		if (array_length(_rng) > 2 || string_length(string_letters(_rng[_idx])) == 0 || string_length(string_digits(_rng[_idx])) == 0)	__spread_log($"Invalid range provided, {_range}", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (_idx < 0 || _idx > 1)	__spread_log($"Invalid index provided, {_idx}", SPREAD_MESSAGE_LEVEL.ERROR);	
+			
+		var _spec_range = string_upper(string_lettersdigits(_rng[_idx]));
+			
+		var _col = 0;
+		var _i = 1;
+		var _n=string_length(_spec_range);
+		var _digits = false;
+		while (_i<=_n && !_digits) {
+			var _chr = string_copy(_spec_range, _i, 1);				
+			if (ord(_chr)>64) _i++;
+			else _digits = true;
+		}
+		_i--;
+			
+		for (_k = _i; _k>0; _k--) {
+			var _chr = string_copy(_spec_range, _k, 1);
+			_col += (ord(_chr) - 64) * power(26, _i-_k);
+		}
+			
+		var _row = real(string_copy(_spec_range, _i+1, string_length(_spec_range)));
+		return {col: _col, row: _row};
+	}
+			
+	/**
+	 * @desc	gets the area in # of cells of an address or  range
+	 * @param	{string}	_range	the range to check (e.g. "A4", or "Z5:AB40")
+	 * @returns {real}		the area
+	 */
+	function __spread_range_get_area(_range) {
+		var _rng = string_split(_range, ":");
+		if (array_length(_rng) == 1)	array_push(_rng, _rng[0]);
+		if (array_length(_rng) > 2)	__spread_log($"Invalid range provided, {_range}", SPREAD_MESSAGE_LEVEL.ERROR);
+				
+		var _props_top_left = __spread_range_get_properties(_range, 0);
+		var _props_bottom_right = __spread_range_get_properties(_range, 1);
+		if !(_props_top_left.col <= _props_bottom_right.col && _props_top_left.row <= _props_bottom_right.row)	return 0;
+				
+		return (_props_bottom_right.col - _props_top_left.col + 1) * (_props_bottom_right.row - _props_top_left.row + 1);
+	}
+			
+	/**
+	 * @desc	given a column number, gets the letter associated with the column
+	 * @param	{real} _column	a column number
+	 * @returns {string} the corresponding letter
+	 */
+	function __spread_col_to_address(_column) {				
+		if (!is_real(_column) || _column < 1 || _column > 16384) __spread_log($"Invalid column number provided, {_column}", SPREAD_MESSAGE_LEVEL.ERROR);
+		var _col = round(_column);
+				
+		var _address = "";
+				
+		while (_col > 0) {
+			var _remainder = (_col - 1) % 26;
+			_address = chr(65 + _remainder) + _address;
+			_col = floor((_col - 1) / 26);
+		}
+
+		return _address;
+	}
+	
+	/**
+	 * @desc	given a column letter, return the number
+	 * @param	{string}	_address	the column specifier (e.g. "H")
+	 * @returns {real}	the column number
+	 */
+	function __spread_address_to_col(_address) {
+		if (string_length(_address) < 1 || string_letters(_address) != _address)	__spread_log($"Invalid column address provided, {_address}", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (string_pos(":", _address) > 0)	__spread_log($"Cannot get column number of provided range {_address} - use a single column specifier instead", SPREAD_MESSAGE_LEVEL.ERROR);
+		
+		_address = string_upper(_address);
+
+		var _col = 0;
+
+		for (var i = 1; i <= string_length(_address); i++) {
+			var _char = string_char_at(_address, i);
+			var _code = ord(_char);
+			_col = (_col * 26) + (_code - 64);
+		}
+
+		if (_col < 1 || _col > 16384) __spread_log($"Column address out of bounds, {_address}", SPREAD_MESSAGE_LEVEL.ERROR);
+
+		return _col;
+	}
+			
+#endregion
 
 #region Init and default config
 

@@ -19,6 +19,7 @@
   "ForcedPrefabProjectReferences":[],
   "IncludedFiles":[
     {"$GMIncludedFile":"","%Name":"~$My Spreadsheet.xlsx","CopyToMask":-1,"filePath":"datafiles","name":"~$My Spreadsheet.xlsx","resourceType":"GMIncludedFile","resourceVersion":"2.0",},
+    {"$GMIncludedFile":"","%Name":"~$Test.xlsx","CopyToMask":-1,"filePath":"datafiles","name":"~$Test.xlsx","resourceType":"GMIncludedFile","resourceVersion":"2.0",},
     {"$GMIncludedFile":"","%Name":"regex.exe","CopyToMask":-1,"filePath":"datafiles","name":"regex.exe","resourceType":"GMIncludedFile","resourceVersion":"2.0",},
     {"$GMIncludedFile":"","%Name":"Test.xlsx","CopyToMask":-1,"filePath":"datafiles","name":"Test.xlsx","resourceType":"GMIncludedFile","resourceVersion":"2.0",},
   ],
