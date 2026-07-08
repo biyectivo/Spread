@@ -285,7 +285,33 @@
 			}
 		
 		#endregion
-	
+		
+		/**
+		 * @desc	converts HTML escape entities into actual chars
+		 * @param	{string}	_string		the string to process
+		 * @returns	{string}	the string with the actual characters in place
+		 */
+		function __spread_html_unescape(_string) {
+			var _entities = {
+				"&lt;": "<",
+				"&gt;": ">",
+				"&amp;": "&",
+				"&quot;": "\"",
+				"&apos;": "'",
+				"&nbsp;": chr(160),
+			    "&copy;": chr(169),
+			    "&reg;": chr(174),
+			    "&euro;": chr(8364),
+			};
+			
+			var _ents = struct_get_names(_entities);
+			var _str = _string;
+			for (var _i=0, _n=array_length(_ents); _i<_n; _i++) {				
+				_str = string_replace_all(_str, _ents[_i], _entities[$ _ents[_i]]);				
+			}
+			return _str;
+		}
+		
 	#endregion
 
 	#region API
@@ -697,13 +723,13 @@
 						"string": "$PREV$",
 						"pattern": "<v>([^<]*)</v>",
 						//"replacement": "\"v\"=$1#"
-						"replacement": "v=$1#"
+						"replacement": "v=$1"+SPREAD_REGEX_PROCESSING_CHAR
 					},
 					{
 						"instruction": "sub", // formulas
 						"string": "$PREV$",
 						"pattern": "<f([^>]*)(?:/>|>([^<]*)</f>)",
-						"replacement": "f=$2#$1#"
+						"replacement": "f=$2"+SPREAD_REGEX_PROCESSING_CHAR+"$1"+SPREAD_REGEX_PROCESSING_CHAR
 					},
 				];
 				var _json_regex = json_stringify(_json);
@@ -783,7 +809,7 @@
 					
 				
 					// Now parse the values/formulas
-					var _range_value_formula = string_split(_parts[1], "#");
+					var _range_value_formula = string_split(_parts[1], "«");
 					for (var _j=0, _m=array_length(_range_value_formula); _j<_m; _j++) {
 						var _tag_value = string_split(_range_value_formula[_j], "=");
 					
@@ -796,10 +822,10 @@
 						switch(_tag) {
 							case "v": // actual value (or index of shared string)
 								if (_ranges[$ _key][$ "raw_type"] == "\"s\"") { // shared string
-									var _val = global.Spread.connections[$ _connection_id].shared_strings[ real(_tag_value[1]) ];								
+									var _val = __spread_html_unescape( global.Spread.connections[$ _connection_id].shared_strings[ real(_tag_value[1]) ]);
 								}
 								else if (_ranges[$ _key][$ "raw_type"] == "\"str\"") { // string result
-									var _val = _tag_value[1];
+									var _val = __spread_html_unescape( _tag_value[1] );
 								}
 								else if (_ranges[$ _key][$ "raw_type"] == "\"b\"") { // bool
 									var _val = bool(_tag_value[1]);
@@ -811,7 +837,7 @@
 								_ranges[$ _key][$ "value"] = _val;
 								break;
 							case "f": // formula
-								_ranges[$ _key][$ "formula"] = _tag_value[1];
+								_ranges[$ _key][$ "formula"] = __spread_html_unescape( _tag_value[1] );
 								break;
 							// TO DO: ref= si= (shared formulas)	
 						}				
