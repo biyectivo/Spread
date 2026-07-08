@@ -628,7 +628,7 @@
 				if (file_exists(game_save_id+"__spread_json_output.json"))	file_delete(game_save_id+"__spread_json_output.json");
 			
 				__spread_log($"Connection named {_connection_name} successfully established to XLSX file {_filename}", SPREAD_MESSAGE_LEVEL.INFO);
-				show_debug_message(global.Spread.connections[$ _connection_name]);
+				//show_debug_message(global.Spread.connections[$ _connection_name]);
 			
 				return true;
 			}
@@ -696,13 +696,14 @@
 						"instruction": "sub", // values
 						"string": "$PREV$",
 						"pattern": "<v>([^<]*)</v>",
-						"replacement": "\"v\"=$1 "
+						//"replacement": "\"v\"=$1#"
+						"replacement": "v=$1#"
 					},
 					{
 						"instruction": "sub", // formulas
 						"string": "$PREV$",
 						"pattern": "<f([^>]*)(?:/>|>([^<]*)</f>)",
-						"replacement": "\"f\"=\"$2\" $1 "
+						"replacement": "f=$2#$1#"
 					},
 				];
 				var _json_regex = json_stringify(_json);
@@ -727,12 +728,12 @@
 				_range_data = json_parse(_range_data);
 				_range_data = _range_data[array_length(_range_data)-1];
 			
+				
 				var _ranges = {};
 			
 				for (var _i=0, _n=array_length(_range_data); _i<_n; _i++) {
-					var _data = string_replace_all(string_replace_all(string_replace_all(string_replace_all(_range_data[_i], chr(34), ""), "\\", ""), "[", ""), "]", "");
-					var _parts = string_split(_data, ",");
-				
+					var _parts = json_parse(_range_data[_i])
+					
 					if (array_length(_parts) != 2)	__spread_log($"Unexpected data found while fetching range {_range_formula_or_name} from sheet {_sheet_id}: {_data}", SPREAD_MESSAGE_LEVEL.ERROR);
 				
 					// Parse the metadata first...
@@ -744,22 +745,23 @@
 						switch(_key_value[0]) {
 							case "r":
 								_key = _key_value[1];
+								
 								_ranges[$ _key] = {};
 								break;
 							case "t":
 								switch(_key_value[1]) {
-									case "s": //shared  string									
-									case "inlineStr": // inline
-									case "str": // formula that returns a string
+									case "\"s\"": //shared  string									
+									case "\"inlineStr\"": // inline
+									case "\"str\"": // formula that returns a string
 										_ranges[$ _key][$ "type"] = "string";
 										break;
-									case "b": // boolean
+									case "\"b\"": // boolean
 										_ranges[$ _key][$ "type"] = "boolean";
 										break;
-									case "e": // error
+									case "\"e\"": // error
 										_ranges[$ _key][$ "type"] = "error";
 										break;
-									case "d": // date
+									case "\"d\"": // date
 										_ranges[$ _key][$ "type"] = "number"; // date, but its a number internally
 										break;
 								}
@@ -777,25 +779,29 @@
 							_ranges[$ _key][$ "raw_type"] = "";							
 						}
 					
-					}
+					}					
+					
 				
 					// Now parse the values/formulas
-					var _range_value_formula = string_split(_parts[1], " ");
+					var _range_value_formula = string_split(_parts[1], "#");
 					for (var _j=0, _m=array_length(_range_value_formula); _j<_m; _j++) {
 						var _tag_value = string_split(_range_value_formula[_j], "=");
 					
-						if (array_length(_tag_value) != 2) continue;
+						if (array_length(_tag_value) < 2)	continue;
+						
+						_tag_value[1] = string_join_ext("=", _tag_value, 1);
+						
 										
 						var _tag = _tag_value[0];
 						switch(_tag) {
 							case "v": // actual value (or index of shared string)
-								if (_ranges[$ _key][$ "raw_type"] == "s") { // shared string
+								if (_ranges[$ _key][$ "raw_type"] == "\"s\"") { // shared string
 									var _val = global.Spread.connections[$ _connection_id].shared_strings[ real(_tag_value[1]) ];								
 								}
-								else if (_ranges[$ _key][$ "raw_type"] == "str") { // string result
+								else if (_ranges[$ _key][$ "raw_type"] == "\"str\"") { // string result
 									var _val = _tag_value[1];
 								}
-								else if (_ranges[$ _key][$ "raw_type"] == "b") { // bool
+								else if (_ranges[$ _key][$ "raw_type"] == "\"b\"") { // bool
 									var _val = bool(_tag_value[1]);
 								}
 								// TO DO: inline strings
@@ -807,15 +813,15 @@
 							case "f": // formula
 								_ranges[$ _key][$ "formula"] = _tag_value[1];
 								break;
-							// TO DO: ref= si=	
+							// TO DO: ref= si= (shared formulas)	
 						}				
-					}
+					}					
+					
 				}
 			
 			
 				//if (file_exists(game_save_id+"__spread_json_input.json"))	file_delete(game_save_id+"__spread_json_input.json");
 				//if (file_exists(game_save_id+"__spread_json_output.json"))	file_delete(game_save_id+"__spread_json_output.json");
-			
 			
 				global.Spread.connections[$ _connection_id].tables[$ _table_name_id] = _ranges;
 			
