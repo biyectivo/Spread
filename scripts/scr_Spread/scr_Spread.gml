@@ -16,6 +16,152 @@
 		SYSTEM
 	}
 	
+	enum SPREAD_RANGE_MODE {
+		BY_ROWS,
+		BY_COLUMNS,
+		ARRAY
+	}
+	
+#endregion
+
+#region Validation Schemas
+
+	function Spread_Num(_required, _is_integer=false, _min=-infinity, _max=infinity, _exclusive_min=false, _exclusive_max=false, _allowed_list=[], _forbidden_list=[]) constructor {
+		if (!is_bool(_required))	__spread_log($"'_required' must be a boolean: {_required}", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (!is_bool(_is_integer))	__spread_log($"'_is_integer' must be a boolean: {_is_integer}", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (!is_real(_min))			__spread_log($"'_min' must be numeric: {_min}", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (!is_real(_max))			__spread_log($"'_max' must be numeric: {_max}", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (_min > _max)			__spread_log($"'_min' must be <= '_max: {_min}, {_max}", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (!is_bool(_exclusive_min))	__spread_log($"'_exclusive_min' must be a boolean: {_exclusive_min}", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (!is_bool(_exclusive_max))	__spread_log($"'_exclusive_max' must be a boolean: {_exclusive_max}", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (!is_array(_allowed_list))	__spread_log($"'allow_list' must be an array: {_allowed_list}", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (!is_array(_forbidden_list))	__spread_log($"'_forbidden_list' must be an array: {_forbidden_list}", SPREAD_MESSAGE_LEVEL.ERROR);		
+		if (array_length(array_intersection(_allowed_list, _forbidden_list)) > 0)	__spread_log("Allowed and forbidden lists must be non-intersecting", SPREAD_MESSAGE_LEVEL.ERROR);
+		
+		self.required = _required;
+		self.is_integer = _is_integer;
+		self.min = _min;
+		self.max = _max;
+		self.exclusive_min = _exclusive_min;
+		self.exclusive_max = _exclusive_max;
+		self.allowed_list = _allowed_list;
+		self.forbidden_list = _forbidden_list;
+		
+		static validate = function(_value) {
+			var _validation = true;		
+			if (is_undefined(_value)) {
+				return !self.required;
+			}
+			else {
+				if (!is_real(_value)) return false;
+				if (self.is_integer)	_validation &= is_int32(_value);
+				
+				_validation &= self.exclusive_min ? (_value > self.min) : (_value >= self.min);
+				_validation &= self.exclusive_max ? (_value < self.max) : (_value <= self.max);					
+				
+				_validation &= (array_length(self.allowed_list) == 0 ? true : array_contains(self.allowed_list, _value));
+				_validation &= (array_length(self.forbidden_list) == 0 ? true : !array_contains(self.forbidden_list, _value));				
+			}
+			return _validation;
+		}
+	}
+	
+	function Spread_String(_required, _min_length=0, _max_length=infinity, _allowed_list=[], _forbidden_list=[], _contains="", _does_not_contain="", _starts_with="", _ends_with="") constructor {
+		if (!is_bool(_required))				__spread_log($"'_required' must be a boolean: {_required}", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (!is_real(_min_length))				__spread_log($"'_min_length' must be numeric: {_min_length}", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (!is_real(_max_length))				__spread_log($"'_max_length' must be numeric: {_max_length}", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (_min_length > _max_length)			__spread_log($"'_min_length' must be <= '_max_length: {_min_length}, {_max_length}", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (!is_string(_contains))				__spread_log($"'_contains' must be a string: {_contains}", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (!is_string(_does_not_contain))		__spread_log($"'_does_not_contain' must be a string: {_does_not_contain}", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (!is_string(_starts_with))			__spread_log($"'_starts_with' must be a string: {_starts_with}", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (!is_string(_ends_with))				__spread_log($"'_ends_with' must be a string: {_ends_with}", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (!is_array(_allowed_list))			__spread_log($"'allow_list' must be an array: {_allowed_list}", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (!is_array(_forbidden_list))			__spread_log($"'_forbidden_list' must be an array: {_forbidden_list}", SPREAD_MESSAGE_LEVEL.ERROR);		
+		if (array_length(array_intersection(_allowed_list, _forbidden_list)) > 0)	__spread_log("Allowed and forbidden lists must be non-intersecting", SPREAD_MESSAGE_LEVEL.ERROR);
+		
+		self.required = _required;
+		self.min_length = _min_length;
+		self.max_length = _max_length;
+		self.allowed_list = _allowed_list;
+		self.forbidden_list = _forbidden_list;
+		self.contains = _contains;
+		self.does_not_contain = _does_not_contain;
+		self.starts_with = _starts_with;
+		self.ends_with = _ends_with;
+		
+		static validate = function(_value) {
+			var _validation = true;			
+			if (is_undefined(_value)) {
+				return !self.required;
+			}
+			else {
+				if (!is_string(_value)) return false;
+				_validation &= string_length(_value) >= self.min_length && string_length(_value) <= self.max_length;
+				_validation &= self.contains == "" ? true : string_pos(self.contains, _value) >= 1;
+				_validation &= self.does_not_contain == "" ? true : string_pos(self.does_not_contain, _value) == 0;
+				_validation &= self.starts_with == "" ? true : string_starts_with(_value, self.starts_with);
+				_validation &= self.ends_with == "" ? true : string_ends_with(_value, self.ends_with);
+				_validation &= (array_length(self.allowed_list) == 0 ? true : array_contains(self.allowed_list, _value));
+				_validation &= (array_length(self.forbidden_list) == 0 ? true : !array_contains(self.forbidden_list, _value));
+			}
+			
+			return _validation;
+		}
+	}
+	
+	function Spread_Boolean(_required, _strict = true, _truthy = ["true", "TRUE", true, 1, "yes", "Y"], _falsy = ["false", "FALSE", false, 0, "no", "N"]) constructor {
+		if (!is_bool(_required))		__spread_log($"'_required' must be a boolean: {_required}", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (!is_bool(_strict))			__spread_log($"'_strict' must be a boolean: {_strict}", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (!is_array(_truthy))			__spread_log($"'_truthy' must be an array: {_truthy}", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (!is_array(_falsy))			__spread_log($"'_falsy' must be an array: {_falsy}", SPREAD_MESSAGE_LEVEL.ERROR);		
+		if (array_length(array_intersection(_truthy, _falsy)) > 0)	__spread_log("Allowed and forbidden lists must be non-intersecting", SPREAD_MESSAGE_LEVEL.ERROR);
+		
+		self.required = _required;
+		self.strict = _strict;
+		self.truthy = _truthy;
+		self.falsy = _falsy;
+		
+		static validate = function(_value) {
+			var _validation = true;
+			if (is_undefined(_value)) {
+				return !self.required;
+			}
+			else {
+				if (self.strict) {
+					_validation &= is_bool(_value);
+				}
+				else {
+					_value = (array_contains(self.truthy, _value) ? true : (array_contains(self.falsy, _value) ? false : undefined));					
+					_validation &= is_bool(_value);
+				}
+			}
+			
+			return _validation;
+		}
+	}
+	
+	
+#endregion
+
+#region Init and default config
+
+	global.Spread = {};
+
+	global.Spread.connections = {};
+	global.Spread.tables = {};
+	
+	
+	global.Spread[$ "config"] = {
+
+		mode: SPREAD_MODE.DEV,
+		maintain_data_on_invalid_refresh: true,
+		live_reload_enabled: true,
+		log_message_level: SPREAD_MESSAGE_LEVEL.INFO,
+
+	};
+
+	
+
 #endregion
 
 #region Range/address management
@@ -115,26 +261,6 @@
 		return _col;
 	}
 			
-#endregion
-
-#region Init and default config
-
-	global.Spread = {};
-
-	global.Spread.connections = {};
-	global.Spread.tables = {};
-	
-	
-	global.Spread[$ "config"] = {
-
-		mode: SPREAD_MODE.DEV,
-		maintain_data_on_invalid_refresh: true,
-		live_reload_enabled: true,
-		log_message_level: SPREAD_MESSAGE_LEVEL.INFO,
-
-	};
-
-
 #endregion
 
 #region String version of enums
@@ -310,6 +436,184 @@
 				_str = string_replace_all(_str, _ents[_i], _entities[$ _ents[_i]]);				
 			}
 			return _str;
+		}
+		
+		/**
+		 * @desc	reads the content of a sheet from an active spreadsheet connection
+		 * @param	{string}	_connection_id  the connection id
+		 * @param	{string}	_sheet_id		the worksheet name
+		 * @param	{string}	[_force]=false  whether to reload the contents anyway, even if the sheet was previously loaded
+		 */	
+		function __spread_load_xlsx_worksheet(_connection_id, _sheet_id, _force = false) {
+			if (array_get_index(struct_get_names(global.Spread.connections), _connection_id) == -1)	__spread_log(string($"Connection invalid or not established with spreadsheet, {_connection_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
+			if (array_get_index(struct_get_names(global.Spread.connections[$ _connection_id].sheets), _sheet_id) == -1)	__spread_log(string($"Sheet {_sheet_id} not in spreadsheet {_connection_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
+			
+			if (global.Spread.connections[$ _connection_id].sheets[$ _sheet_id].loaded && !_force) {
+				__spread_log(string($"Sheet {_sheet_id} already loaded and force not specified - skipped"), SPREAD_MESSAGE_LEVEL.INFO);
+				exit;
+			}
+			
+			// Open rel sheet XML
+			var _conn = global.Spread.connections[$ _connection_id];
+			var _sha = SPREAD_CACHE_VERSIONS ? "_"+_conn.source_sha1 : ""
+			var _folder = string($"{_conn.connection_source}{_sha}/");
+			var _sheet_file = _conn.sheets[$ _sheet_id].file;
+			var _file = string($"xl/{_sheet_file}");
+			
+			var _t = get_timer();
+			
+			var _buffer = buffer_create(1, buffer_grow, 1);
+			_buffer = buffer_load(_folder+_file);		
+			var _contents = buffer_read(_buffer, buffer_text);
+			buffer_delete(_buffer);
+			
+			// Perform range extractions
+			var _json = [					
+				{
+					"instruction": "sub", // get rid of "empty" cells (due to merged ranges mainly)
+					"string_file": game_save_id+_folder+_file,
+					"pattern": "<c ([^>]+)/>",
+					"replacement": ""
+				},
+				{
+					"instruction": "findall", // get range and content of each range
+					"string": "$PREV$",
+					"pattern": "<c (?P<attrs>[^>/]*?)(?:/>|>(?P<body>.*?)</c>)"
+				},
+				{
+					"instruction": "sub", // values
+					"string": "$PREV$",
+					"pattern": "<v>([^<]*)</v>",
+					//"replacement": "\"v\"=$1#"
+					"replacement": "v=$1"+SPREAD_REGEX_PROCESSING_CHAR
+				},
+				{
+					"instruction": "sub", // formulas
+					"string": "$PREV$",
+					"pattern": "<f([^>]*)(?:/>|>([^<]*)</f>)",
+					"replacement": "f=$2"+SPREAD_REGEX_PROCESSING_CHAR+"$1"+SPREAD_REGEX_PROCESSING_CHAR
+				},
+			];
+			var _json_regex = json_stringify(_json);
+			
+			var _buffer = buffer_create(1, buffer_grow, 1);
+			buffer_write(_buffer, buffer_text, _json_regex);
+			buffer_save(_buffer, game_save_id+"__spread_json_input.json");
+			buffer_delete(_buffer);
+			
+			var _output = __spread_regex_json(game_save_id+"__spread_json_input.json", game_save_id+"__spread_json_output.json");
+			
+			// Read result from file
+			if (!file_exists(game_save_id+"__spread_json_output.json"))		__spread_log($"Error while parsing range {_range_formula_or_name} from sheet {_sheet_id}", SPREAD_MESSAGE_LEVEL.ERROR);
+			
+			var _buffer = buffer_create(1, buffer_grow, 1);
+			_buffer = buffer_load(game_save_id+"__spread_json_output.json");
+			var _range_data = buffer_read(_buffer, buffer_text);
+			buffer_delete(_buffer);
+			
+						
+			// Process ranges
+			_range_data = json_parse(_range_data);
+			_range_data = _range_data[array_length(_range_data)-1];
+			
+				
+			var _ranges = {};
+			
+			for (var _i=0, _n=array_length(_range_data); _i<_n; _i++) {
+				var _parts = json_parse(_range_data[_i])
+					
+				if (array_length(_parts) != 2)	__spread_log($"Unexpected data found while fetching range {_range_formula_or_name} from sheet {_sheet_id}: {_data}", SPREAD_MESSAGE_LEVEL.ERROR);
+				
+				// Parse the metadata first...
+				var _range_metadata = string_split(_parts[0], " ");
+				
+				var _key = "";
+				for (var _j=0, _m=array_length(_range_metadata); _j<_m; _j++) {
+					var _key_value = string_split(_range_metadata[_j], "=");
+					switch(_key_value[0]) {
+						case "r":
+							_key = _key_value[1];
+								
+							_ranges[$ _key] = {};
+							break;
+						case "t":
+							switch(_key_value[1]) {
+								case "\"s\"": //shared  string									
+								case "\"inlineStr\"": // inline
+								case "\"str\"": // formula that returns a string
+									_ranges[$ _key][$ "type"] = "string";
+									break;
+								case "\"b\"": // boolean
+									_ranges[$ _key][$ "type"] = "boolean";
+									break;
+								case "\"e\"": // error
+									_ranges[$ _key][$ "type"] = "error";
+									break;
+								case "\"d\"": // date
+									_ranges[$ _key][$ "type"] = "number"; // date, but its a number internally
+									break;
+							}
+							_ranges[$ _key][$ "raw_type"] = _key_value[1];
+							
+							break;
+						break;					
+						// ignore other tags						
+					}
+
+
+					// Default (no t tag) is number
+					if (!struct_exists(_ranges[$ _key], "type")) {
+						_ranges[$ _key][$ "type"] = "number";
+						_ranges[$ _key][$ "raw_type"] = "";							
+					}
+					
+				}					
+					
+				
+				// Now parse the values/formulas
+				var _range_value_formula = string_split(_parts[1], "«");
+				for (var _j=0, _m=array_length(_range_value_formula); _j<_m; _j++) {
+					var _tag_value = string_split(_range_value_formula[_j], "=");
+					
+					if (array_length(_tag_value) < 2)	continue;
+						
+					_tag_value[1] = string_join_ext("=", _tag_value, 1);
+						
+										
+					var _tag = _tag_value[0];
+					switch(_tag) {
+						case "v": // actual value (or index of shared string)
+							if (_ranges[$ _key][$ "raw_type"] == "\"s\"") { // shared string
+								var _val = __spread_html_unescape( global.Spread.connections[$ _connection_id].shared_strings[ real(_tag_value[1]) ]);
+							}
+							else if (_ranges[$ _key][$ "raw_type"] == "\"str\"") { // string result
+								var _val = __spread_html_unescape( _tag_value[1] );
+							}
+							else if (_ranges[$ _key][$ "raw_type"] == "\"b\"") { // bool
+								var _val = bool(_tag_value[1]);
+							}
+							// TO DO: inline strings
+							else { // get value (can be from formula or direct)
+								var _val = real(_tag_value[1]);
+							}
+							_ranges[$ _key][$ "value"] = _val;
+							break;
+						case "f": // formula
+							_ranges[$ _key][$ "formula"] = __spread_html_unescape( _tag_value[1] );
+							break;
+						// TO DO: ref= si= (shared formulas)	
+					}				
+				}					
+					
+			}
+			
+			
+			if (file_exists(game_save_id+"__spread_json_input.json"))	file_delete(game_save_id+"__spread_json_input.json");
+			if (file_exists(game_save_id+"__spread_json_output.json"))	file_delete(game_save_id+"__spread_json_output.json");
+			
+			global.Spread.connections[$ _connection_id].sheets[$ _sheet_id].loaded = true;
+			
+			__spread_log(string($"Loaded contents of sheet {_sheet_id} of connection {_connection_id}, in {(get_timer()-_t)/1000000} seconds"), , SPREAD_MESSAGE_LEVEL.INFO);
 		}
 		
 	#endregion
@@ -604,6 +908,7 @@
 						}));
 					
 						global.Spread.connections[$ _connection_name].sheets[$ _key][$ "file"] = string_replace_all(_sheet_rels[0][_idx][1], chr(34), "");
+						global.Spread.connections[$ _connection_name].sheets[$ _key][$ "loaded"] = false;
 					}
 				
 				
@@ -677,181 +982,40 @@
 			
 			
 			/**
-			 * @desc	Fetches a range from a sheet of an active spreadsheet connection
-			 * @param	{string}	_table_name_id				a unique identifier for the table (e.g. tbl_potions, etc.)
-			 * @param	{string}	_connection_id				the connection id
-			 * @param	{string}	_sheet_id					the worksheet name
-			 * @param	{string}	_range_formula_or_name		the range formula (e.g. B2:U67) or named range (e.g. RangeItems) to fetch
-			 * @return	{struct}	a Spread table
+			 * @desc	Defines a new table from a range of a worksheet of an active spreadsheet connection
+			 * @param	{string}	_table_name_id												a unique identifier for the table (e.g. tbl_potions, etc.)
+			 * @param	{string}	_connection_id												the connection id
+			 * @param	{string}	_sheet_id													the worksheet name
+			 * @param	{string}	_range_address_or_name										the range address (e.g. B2:U67) or named range (e.g. RangeItems) to fetch
+			 * @param	{enum}		[_range_mode=SPREAD_RANGE_MODE.BY_ROWS]						whether to define a struct fetching each key-value pair from rows/columns or to define an unkeyed array
+			 * @param	{real}		[_row_or_col_key=1]											in key-value pair mode, # of the row/col to use as key names
+			 * @param	{boolean}	[_error_on_schema_validation_fail=true]						whether to throw an exception if the data does not match the defined schema
+			 * @param	{string}	[_force]=false												whether to reload the contents anyway, even if the sheet was previously loaded			 
+			 * @return	{struct_or_array}	a struct or array (depending on load mode) with the data fetched from the sheet
 			 */
-			function spread_define_table(_table_name_id, _connection_id, _sheet_id, _range_formula_or_name) {
+			function spread_define_table(_table_name_id, _connection_id, _sheet_id, _range_address_or_name, _range_mode=SPREAD_RANGE_MODE.BY_ROWS, _row_or_col_key = 1, _error_on_schema_validation_fail=true, _force = false) {
 				if (array_get_index(struct_get_names(global.Spread.tables), _table_name_id) != -1)	__spread_log(string($"Table name already exists, {_table_name_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
 				if (array_get_index(struct_get_names(global.Spread.connections), _connection_id) == -1)	__spread_log(string($"Connection invalid or not established with spreadsheet, {_connection_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
 				if (array_get_index(struct_get_names(global.Spread.connections[$ _connection_id].sheets), _sheet_id) == -1)	__spread_log(string($"Sheet {_sheet_id} not in spreadsheet {_connection_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
-			
+				
+				// TODO: named ranges!
+				var _rng = string_split(_range_address_or_name, ":");
+				if (array_length(_rng) == 1)	array_push(_rng, _rng[0]);
+				if (array_length(_rng) > 2 || string_length(string_letters(_rng[0])) == 0 || string_length(string_digits(_rng[0])) == 0 || string_length(string_letters(_rng[1])) == 0 || string_length(string_digits(_rng[1])) == 0)	__spread_log($"Invalid range provided, {_range_formula_or_name}", SPREAD_MESSAGE_LEVEL.ERROR);
+				
+				_rng[0] = string_upper(string_lettersdigits(_rng[0]));
+				_rng[1] = string_upper(string_lettersdigits(_rng[1]));
+				
+				// Load (if necessary)
+				__spread_load_xlsx_worksheet(_connection_id, _sheet_id, _force);
+				
 				var _t = get_timer();
-			
-				// Open rel sheet XML
-				var _conn = global.Spread.connections[$ _connection_id];
-				var _sha = SPREAD_CACHE_VERSIONS ? "_"+_conn.source_sha1 : ""
-				var _folder = string($"{_conn.connection_source}{_sha}/");
-				var _sheet_file = _conn.sheets[$ _sheet_id].file;
-				var _file = string($"xl/{_sheet_file}");
-			
-				var _t = get_timer();
-			
-				var _buffer = buffer_create(1, buffer_grow, 1);
-				_buffer = buffer_load(_folder+_file);		
-				var _contents = buffer_read(_buffer, buffer_text);
-				buffer_delete(_buffer);
-			
-				// Perform range extractions
-				var _json = [					
-					{
-						"instruction": "sub", // get rid of "empty" cells (due to merged ranges mainly)
-						"string_file": game_save_id+_folder+_file,
-						"pattern": "<c ([^>]+)/>",
-						"replacement": ""
-					},
-					{
-						"instruction": "findall", // get range and content of each range
-						"string": "$PREV$",
-						"pattern": "<c (?P<attrs>[^>/]*?)(?:/>|>(?P<body>.*?)</c>)"
-					},
-					{
-						"instruction": "sub", // values
-						"string": "$PREV$",
-						"pattern": "<v>([^<]*)</v>",
-						//"replacement": "\"v\"=$1#"
-						"replacement": "v=$1"+SPREAD_REGEX_PROCESSING_CHAR
-					},
-					{
-						"instruction": "sub", // formulas
-						"string": "$PREV$",
-						"pattern": "<f([^>]*)(?:/>|>([^<]*)</f>)",
-						"replacement": "f=$2"+SPREAD_REGEX_PROCESSING_CHAR+"$1"+SPREAD_REGEX_PROCESSING_CHAR
-					},
-				];
-				var _json_regex = json_stringify(_json);
-			
-				var _buffer = buffer_create(1, buffer_grow, 1);
-				buffer_write(_buffer, buffer_text, _json_regex);
-				buffer_save(_buffer, game_save_id+"__spread_json_input.json");
-				buffer_delete(_buffer);
-			
-				var _output = __spread_regex_json(game_save_id+"__spread_json_input.json", game_save_id+"__spread_json_output.json");
-			
-				// Read result from file
-				if (!file_exists(game_save_id+"__spread_json_output.json"))		__spread_log($"Error while parsing range {_range_formula_or_name} from sheet {_sheet_id}", SPREAD_MESSAGE_LEVEL.ERROR);
-			
-				var _buffer = buffer_create(1, buffer_grow, 1);
-				_buffer = buffer_load(game_save_id+"__spread_json_output.json");
-				var _range_data = buffer_read(_buffer, buffer_text);
-				buffer_delete(_buffer);
-			
-						
-				// Process ranges
-				_range_data = json_parse(_range_data);
-				_range_data = _range_data[array_length(_range_data)-1];
-			
 				
 				var _ranges = {};
-			
-				for (var _i=0, _n=array_length(_range_data); _i<_n; _i++) {
-					var _parts = json_parse(_range_data[_i])
-					
-					if (array_length(_parts) != 2)	__spread_log($"Unexpected data found while fetching range {_range_formula_or_name} from sheet {_sheet_id}: {_data}", SPREAD_MESSAGE_LEVEL.ERROR);
 				
-					// Parse the metadata first...
-					var _range_metadata = string_split(_parts[0], " ");
-				
-					var _key = "";
-					for (var _j=0, _m=array_length(_range_metadata); _j<_m; _j++) {
-						var _key_value = string_split(_range_metadata[_j], "=");
-						switch(_key_value[0]) {
-							case "r":
-								_key = _key_value[1];
-								
-								_ranges[$ _key] = {};
-								break;
-							case "t":
-								switch(_key_value[1]) {
-									case "\"s\"": //shared  string									
-									case "\"inlineStr\"": // inline
-									case "\"str\"": // formula that returns a string
-										_ranges[$ _key][$ "type"] = "string";
-										break;
-									case "\"b\"": // boolean
-										_ranges[$ _key][$ "type"] = "boolean";
-										break;
-									case "\"e\"": // error
-										_ranges[$ _key][$ "type"] = "error";
-										break;
-									case "\"d\"": // date
-										_ranges[$ _key][$ "type"] = "number"; // date, but its a number internally
-										break;
-								}
-								_ranges[$ _key][$ "raw_type"] = _key_value[1];
-							
-								break;
-							break;					
-							// ignore other tags						
-						}
-
-
-						// Default (no t tag) is number
-						if (!struct_exists(_ranges[$ _key], "type")) {
-							_ranges[$ _key][$ "type"] = "number";
-							_ranges[$ _key][$ "raw_type"] = "";							
-						}
-					
-					}					
-					
-				
-					// Now parse the values/formulas
-					var _range_value_formula = string_split(_parts[1], "«");
-					for (var _j=0, _m=array_length(_range_value_formula); _j<_m; _j++) {
-						var _tag_value = string_split(_range_value_formula[_j], "=");
-					
-						if (array_length(_tag_value) < 2)	continue;
-						
-						_tag_value[1] = string_join_ext("=", _tag_value, 1);
-						
-										
-						var _tag = _tag_value[0];
-						switch(_tag) {
-							case "v": // actual value (or index of shared string)
-								if (_ranges[$ _key][$ "raw_type"] == "\"s\"") { // shared string
-									var _val = __spread_html_unescape( global.Spread.connections[$ _connection_id].shared_strings[ real(_tag_value[1]) ]);
-								}
-								else if (_ranges[$ _key][$ "raw_type"] == "\"str\"") { // string result
-									var _val = __spread_html_unescape( _tag_value[1] );
-								}
-								else if (_ranges[$ _key][$ "raw_type"] == "\"b\"") { // bool
-									var _val = bool(_tag_value[1]);
-								}
-								// TO DO: inline strings
-								else { // get value (can be from formula or direct)
-									var _val = real(_tag_value[1]);
-								}
-								_ranges[$ _key][$ "value"] = _val;
-								break;
-							case "f": // formula
-								_ranges[$ _key][$ "formula"] = __spread_html_unescape( _tag_value[1] );
-								break;
-							// TO DO: ref= si= (shared formulas)	
-						}				
-					}					
-					
-				}
-			
-			
-				//if (file_exists(game_save_id+"__spread_json_input.json"))	file_delete(game_save_id+"__spread_json_input.json");
-				//if (file_exists(game_save_id+"__spread_json_output.json"))	file_delete(game_save_id+"__spread_json_output.json");
-			
 				global.Spread.connections[$ _connection_id].tables[$ _table_name_id] = _ranges;
-			
-				__spread_log(string($"Loaded table {_table_name_id} from range {_range_formula_or_name} of sheet {_sheet_id} of connection {_connection_id}, in {(get_timer()-_t)/1000000} seconds"), , SPREAD_MESSAGE_LEVEL.INFO);
+				
+				__spread_log(string($"Loaded table {_table_name_id} from range {_range_address_or_name} of sheet {_sheet_id} of connection {_connection_id}, in {(get_timer()-_t)/1000000} seconds"), , SPREAD_MESSAGE_LEVEL.INFO);			
 			}
 			
 			
