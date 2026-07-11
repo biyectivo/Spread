@@ -16,17 +16,15 @@
 		SYSTEM
 	}
 	
-	enum SPREAD_RANGE_MODE {
-		BY_ROWS,
-		BY_COLUMNS,
-		ARRAY
-	}
-	
 #endregion
 
 #region Validation Schemas
 
-	function Spread_Num(_required, _is_integer=false, _min=-infinity, _max=infinity, _exclusive_min=false, _exclusive_max=false, _allowed_list=[], _forbidden_list=[]) constructor {
+	function Spread_Schema() constructor {
+	}
+	
+	function Spread_Num(_name, _required, _is_integer=false, _min=-infinity, _max=infinity, _exclusive_min=false, _exclusive_max=false, _allowed_list=[], _forbidden_list=[]) : Spread_Schema() constructor {
+		self.name = _name;
 		if (!is_bool(_required))	__spread_log($"'_required' must be a boolean: {_required}", SPREAD_MESSAGE_LEVEL.ERROR);
 		if (!is_bool(_is_integer))	__spread_log($"'_is_integer' must be a boolean: {_is_integer}", SPREAD_MESSAGE_LEVEL.ERROR);
 		if (!is_real(_min))			__spread_log($"'_min' must be numeric: {_min}", SPREAD_MESSAGE_LEVEL.ERROR);
@@ -47,26 +45,31 @@
 		self.allowed_list = _allowed_list;
 		self.forbidden_list = _forbidden_list;
 		
-		static validate = function(_value) {
-			var _validation = true;		
+		static validate = function(_value) {			
 			if (is_undefined(_value)) {
 				return !self.required;
 			}
 			else {
+				var _validation = true;
 				if (!is_real(_value)) return false;
-				if (self.is_integer)	_validation &= is_int32(_value);
+				if (self.is_integer)	_validation &= floor(_value) == _value;
 				
 				_validation &= self.exclusive_min ? (_value > self.min) : (_value >= self.min);
 				_validation &= self.exclusive_max ? (_value < self.max) : (_value <= self.max);					
 				
 				_validation &= (array_length(self.allowed_list) == 0 ? true : array_contains(self.allowed_list, _value));
 				_validation &= (array_length(self.forbidden_list) == 0 ? true : !array_contains(self.forbidden_list, _value));				
-			}
-			return _validation;
+				return _validation;
+			}			
+		}
+		
+		static toString = function() {
+			return string($"Spread_Num: {self.name}: required={self.required}, integer={self.is_integer}, min={self.min}, max={self.max}, exclusive_min={self.exclusive_min}, exclusive_max={self.exclusive_max}, allowed_list={self.allowed_list}, forbidden_list={self.forbidden_list}");
 		}
 	}
 	
-	function Spread_String(_required, _min_length=0, _max_length=infinity, _allowed_list=[], _forbidden_list=[], _contains="", _does_not_contain="", _starts_with="", _ends_with="") constructor {
+	function Spread_String(_name, _required, _min_length=0, _max_length=infinity, _allowed_list=[], _forbidden_list=[], _contains="", _does_not_contain="", _starts_with="", _ends_with="") : Spread_Schema() constructor {
+		self.name = _name;
 		if (!is_bool(_required))				__spread_log($"'_required' must be a boolean: {_required}", SPREAD_MESSAGE_LEVEL.ERROR);
 		if (!is_real(_min_length))				__spread_log($"'_min_length' must be numeric: {_min_length}", SPREAD_MESSAGE_LEVEL.ERROR);
 		if (!is_real(_max_length))				__spread_log($"'_max_length' must be numeric: {_max_length}", SPREAD_MESSAGE_LEVEL.ERROR);
@@ -89,12 +92,12 @@
 		self.starts_with = _starts_with;
 		self.ends_with = _ends_with;
 		
-		static validate = function(_value) {
-			var _validation = true;			
+		static validate = function(_value) {			
 			if (is_undefined(_value)) {
 				return !self.required;
 			}
 			else {
+				var _validation = true;			
 				if (!is_string(_value)) return false;
 				_validation &= string_length(_value) >= self.min_length && string_length(_value) <= self.max_length;
 				_validation &= self.contains == "" ? true : string_pos(self.contains, _value) >= 1;
@@ -103,13 +106,18 @@
 				_validation &= self.ends_with == "" ? true : string_ends_with(_value, self.ends_with);
 				_validation &= (array_length(self.allowed_list) == 0 ? true : array_contains(self.allowed_list, _value));
 				_validation &= (array_length(self.forbidden_list) == 0 ? true : !array_contains(self.forbidden_list, _value));
-			}
+				return _validation;
+			}			
 			
-			return _validation;
+		}
+		
+		static toString = function() {
+			return string($"Spread_String: {self.name}: required={self.required}, min_length={self.min_length}, max_length={self.max_length}, allowed_list={self.allowed_list}, forbidden_list={self.forbidden_list}, contains={self.contains}, does_not_contain={self.does_not_contain}, starts_with={self.starts_with}, ends_with={self.ends_with}");
 		}
 	}
 	
-	function Spread_Boolean(_required, _strict = true, _truthy = ["true", "TRUE", true, 1, "yes", "Y"], _falsy = ["false", "FALSE", false, 0, "no", "N"]) constructor {
+	function Spread_Boolean(_name, _required, _strict = false, _truthy = ["true", "TRUE", true, 1, "yes", "Y"], _falsy = ["false", "FALSE", false, 0, "no", "N"]) : Spread_Schema() constructor {
+		self.name = _name;
 		if (!is_bool(_required))		__spread_log($"'_required' must be a boolean: {_required}", SPREAD_MESSAGE_LEVEL.ERROR);
 		if (!is_bool(_strict))			__spread_log($"'_strict' must be a boolean: {_strict}", SPREAD_MESSAGE_LEVEL.ERROR);
 		if (!is_array(_truthy))			__spread_log($"'_truthy' must be an array: {_truthy}", SPREAD_MESSAGE_LEVEL.ERROR);
@@ -122,11 +130,12 @@
 		self.falsy = _falsy;
 		
 		static validate = function(_value) {
-			var _validation = true;
 			if (is_undefined(_value)) {
 				return !self.required;
 			}
 			else {
+				var _validation = true;
+			
 				if (self.strict) {
 					_validation &= is_bool(_value);
 				}
@@ -134,9 +143,22 @@
 					_value = (array_contains(self.truthy, _value) ? true : (array_contains(self.falsy, _value) ? false : undefined));					
 					_validation &= is_bool(_value);
 				}
+				return _validation;
 			}
-			
-			return _validation;
+		}
+		
+		static toString = function() {
+			return string($"Spread_Boolean: {self.name}: required={self.required}, strict={self.strict}, truthy={self.truthy}, falsy={self.falsy}");
+		}
+	}
+	
+	function Spread_ID(_name) : Spread_Schema() constructor {		
+		self.name = _name;
+		static validate = function(_value, _existing_values) {
+			return array_get_index(_existing_values, _value) == -1;
+		}
+		static toString = function() {
+			return string($"Spread_ID: {self.name}");
 		}
 	}
 	
@@ -210,12 +232,44 @@
 		if (array_length(_rng) == 1)	array_push(_rng, _rng[0]);
 		if (array_length(_rng) > 2)	__spread_log($"Invalid range provided, {_range}", SPREAD_MESSAGE_LEVEL.ERROR);
 				
+		return __spread_range_get_columns(_range) * __spread_range_get_rows(_range);
+	}
+	
+	/**
+	 * @desc	gets the number of rows of an address or  range
+	 * @param	{string}	_range	the range to check (e.g. "A4", or "Z5:AB40")
+	 * @returns {real}		the number of rows
+	 */
+	function __spread_range_get_rows(_range) {
+		var _rng = string_split(_range, ":");
+		if (array_length(_rng) == 1)	array_push(_rng, _rng[0]);
+		if (array_length(_rng) > 2)	__spread_log($"Invalid range provided, {_range}", SPREAD_MESSAGE_LEVEL.ERROR);
+				
 		var _props_top_left = __spread_range_get_properties(_range, 0);
 		var _props_bottom_right = __spread_range_get_properties(_range, 1);
 		if !(_props_top_left.col <= _props_bottom_right.col && _props_top_left.row <= _props_bottom_right.row)	return 0;
 				
-		return (_props_bottom_right.col - _props_top_left.col + 1) * (_props_bottom_right.row - _props_top_left.row + 1);
+		return (_props_bottom_right.row - _props_top_left.row + 1);
 	}
+	
+	/**
+	 * @desc	gets the number of columns of an address or  range
+	 * @param	{string}	_range	the range to check (e.g. "A4", or "Z5:AB40")
+	 * @returns {real}		the number of columns
+	 */
+	function __spread_range_get_columns(_range) {
+		var _rng = string_split(_range, ":");
+		if (array_length(_rng) == 1)	array_push(_rng, _rng[0]);
+		if (array_length(_rng) > 2)	__spread_log($"Invalid range provided, {_range}", SPREAD_MESSAGE_LEVEL.ERROR);
+				
+		var _props_top_left = __spread_range_get_properties(_range, 0);
+		var _props_bottom_right = __spread_range_get_properties(_range, 1);
+		if !(_props_top_left.col <= _props_bottom_right.col && _props_top_left.row <= _props_bottom_right.row)	return 0;
+				
+		return (_props_bottom_right.col - _props_top_left.col + 1);
+	}
+	
+	
 			
 	/**
 	 * @desc	given a column number, gets the letter associated with the column
@@ -532,7 +586,7 @@
 					var _key_value = string_split(_range_metadata[_j], "=");
 					switch(_key_value[0]) {
 						case "r":
-							_key = _key_value[1];
+							_key = string_replace_all(_key_value[1], chr(34), "");
 								
 							_ranges[$ _key] = {};
 							break;
@@ -611,9 +665,11 @@
 			if (file_exists(game_save_id+"__spread_json_input.json"))	file_delete(game_save_id+"__spread_json_input.json");
 			if (file_exists(game_save_id+"__spread_json_output.json"))	file_delete(game_save_id+"__spread_json_output.json");
 			
+			global.Spread.connections[$ _connection_id].sheets[$ _sheet_id].data = _ranges;			
 			global.Spread.connections[$ _connection_id].sheets[$ _sheet_id].loaded = true;
+			global.Spread.connections[$ _connection_id].sheets[$ _sheet_id].last_loaded_datetime = date_current_datetime();
 			
-			__spread_log(string($"Loaded contents of sheet {_sheet_id} of connection {_connection_id}, in {(get_timer()-_t)/1000000} seconds"), , SPREAD_MESSAGE_LEVEL.INFO);
+			__spread_log(string($"Loaded contents of sheet {_sheet_id} of connection {_connection_id}, in {(get_timer()-_t)/1000000} seconds"), SPREAD_MESSAGE_LEVEL.INFO);
 		}
 		
 	#endregion
@@ -909,6 +965,7 @@
 					
 						global.Spread.connections[$ _connection_name].sheets[$ _key][$ "file"] = string_replace_all(_sheet_rels[0][_idx][1], chr(34), "");
 						global.Spread.connections[$ _connection_name].sheets[$ _key][$ "loaded"] = false;
+						global.Spread.connections[$ _connection_name].sheets[$ _key][$ "last_loaded_datetime"] = undefined;
 					}
 				
 				
@@ -987,16 +1044,41 @@
 			 * @param	{string}	_connection_id												the connection id
 			 * @param	{string}	_sheet_id													the worksheet name
 			 * @param	{string}	_range_address_or_name										the range address (e.g. B2:U67) or named range (e.g. RangeItems) to fetch
-			 * @param	{enum}		[_range_mode=SPREAD_RANGE_MODE.BY_ROWS]						whether to define a struct fetching each key-value pair from rows/columns or to define an unkeyed array
-			 * @param	{real}		[_row_or_col_key=1]											in key-value pair mode, # of the row/col to use as key names
+			 * @param	{array}		_field_definition											an array of Spread_Field items, defining the name of the key (i.e. field) and the schema used to validate that field
+			 *																					the array must be of the same size as the # of columns (if the shape is rows) or the # of rows (if the shape is columns)
+			 *																					for each position of the array, a field will be configured in the destination table, and data will be validated against the corresponding schema
+			 *																					NOTE: exactly one of the schemas MUST have Spread_ID schema
+			 * @param	{real}		[_item_offset=0]												0-based index of the row/col from which to start reading values
+			 * @param	{enum}		[_shape_is_rows=true]										whether each row represents a data point (if true) or whether each column represents a data point (false)			 
 			 * @param	{boolean}	[_error_on_schema_validation_fail=true]						whether to throw an exception if the data does not match the defined schema
 			 * @param	{string}	[_force]=false												whether to reload the contents anyway, even if the sheet was previously loaded			 
 			 * @return	{struct_or_array}	a struct or array (depending on load mode) with the data fetched from the sheet
 			 */
-			function spread_define_table(_table_name_id, _connection_id, _sheet_id, _range_address_or_name, _range_mode=SPREAD_RANGE_MODE.BY_ROWS, _row_or_col_key = 1, _error_on_schema_validation_fail=true, _force = false) {
+			function spread_define_table(_table_name_id, _connection_id, _sheet_id, _range_address_or_name, _field_definition, _item_offset = 0, _shape_is_rows=true,  _error_on_schema_validation_fail=true, _force = false) {
 				if (array_get_index(struct_get_names(global.Spread.tables), _table_name_id) != -1)	__spread_log(string($"Table name already exists, {_table_name_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
 				if (array_get_index(struct_get_names(global.Spread.connections), _connection_id) == -1)	__spread_log(string($"Connection invalid or not established with spreadsheet, {_connection_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
 				if (array_get_index(struct_get_names(global.Spread.connections[$ _connection_id].sheets), _sheet_id) == -1)	__spread_log(string($"Sheet {_sheet_id} not in spreadsheet {_connection_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
+				if (!is_array(_field_definition))	__spread_log(string($"_field_definition must be an array with items of type Spread_Field, {_field_definition}"), SPREAD_MESSAGE_LEVEL.ERROR);
+				
+				var _expected_fields = _shape_is_rows ? __spread_range_get_columns(_range_address_or_name) : __spread_range_get_rows(_range_address_or_name);
+				var _expected_items = _shape_is_rows ? __spread_range_get_rows(_range_address_or_name) : __spread_range_get_columns(_range_address_or_name);
+				
+				if (_item_offset < 0 || _item_offset >= _expected_items)	__spread_log(string($"Invalid item offset, {_item_offset}, must be within the number of items in range"), SPREAD_MESSAGE_LEVEL.ERROR);
+				if (array_length(_field_definition) != _expected_fields)	__spread_log(string($"_field_definition array must be of size {_expected_fields}, since the chosen shape is {_shape_is_rows ? "rows" : "columns"} and provided range is {_range_address_or_name}"), SPREAD_MESSAGE_LEVEL.ERROR);
+				var _field_error = false;
+				var _num_id = 0;
+				var _key_field_idx = undefined;
+				for (var _i=0, _n=array_length(_field_definition); _i<_n; _i++) {
+					var _elem = _field_definition[_i];
+					_field_error = _field_error || !is_instanceof(_elem, Spread_Schema);					
+					if (is_instanceof(_elem, Spread_ID)) {
+						_num_id++;
+						_key_field_idx = _i;
+					}					
+				}
+				
+				if (_field_error)	__spread_log(string($"Items of {_field_definition} array must be of type Spread_Field structs"), SPREAD_MESSAGE_LEVEL.ERROR);
+				if (_num_id != 1)	__spread_log(string($"There must be exactly one field defined as key or Spread_ID, instead got {_num_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
 				
 				// TODO: named ranges!
 				var _rng = string_split(_range_address_or_name, ":");
@@ -1013,9 +1095,54 @@
 				
 				var _ranges = {};
 				
+				var _col_top_left = real(__spread_address_to_col( string_letters(_rng[0]) ));
+				var _row_top_left = real(string_digits(_rng[0]));
+				var _col_bottom_right = real(__spread_address_to_col( string_letters(_rng[1]) ));
+				var _row_bottom_right = real(string_digits(_rng[1]));
+				
+				
+				var _item_min = _shape_is_rows ? _row_top_left : _col_top_left;
+				var _item_max = _shape_is_rows ? _row_bottom_right : _col_bottom_right;
+				var _field_min = _shape_is_rows ? _col_top_left : _row_top_left;
+				var _field_max = _shape_is_rows ? _col_bottom_right : _row_bottom_right;
+				
+				var _existing_id_values = [];
+				
+				for (var _item_num = _item_min + _item_offset; _item_num <= _item_max; _item_num++) {
+					var _key = "";
+					var _values = {};
+					for (var _field_num = _field_min; _field_num <= _field_max; _field_num++) {						
+						var _cell = _shape_is_rows ? __spread_col_to_address(_field_num)+string(_item_num) : __spread_col_to_address(_item_num)+string(_field_num);
+						if (variable_struct_exists(global.Spread.connections[$ _connection_id].sheets[$ _sheet_id].data, _cell)) {			
+							// Validate
+							var _value = global.Spread.connections[$ _connection_id].sheets[$ _sheet_id].data[$ _cell].value;
+							var _type = global.Spread.connections[$ _connection_id].sheets[$ _sheet_id].data[$ _cell].type;
+							var _field = _field_definition[_field_num-_field_min];
+							if (_field.validate(_value, _existing_id_values)) {
+								if (_field_num-_field_min == _key_field_idx) {
+									_key = _value;
+								}
+								else {
+									_values[$ _field.name] = _value;
+								}
+							}
+							else if (_field_num-_field_min == _key_field_idx)	{
+								__spread_log($"Cell {_cell} cannot be blank since it's being read as an Spread_ID: {_value}", SPREAD_MESSAGE_LEVEL.ERROR);
+							}
+							else {								
+								__spread_log($"Cell {_cell} is equal to [{_value}] (spreadsheet type [{_type}]), which does not match the defined schema: {_field}", SPREAD_MESSAGE_LEVEL.ERROR, _error_on_schema_validation_fail);
+							}							
+						}
+						else {
+							__spread_log($"Skipping {_cell}, no value in spreadsheet", SPREAD_MESSAGE_LEVEL.INFO);
+						}
+					}
+					_ranges[$ _key] = _values;
+				}
+				
 				global.Spread.connections[$ _connection_id].tables[$ _table_name_id] = _ranges;
 				
-				__spread_log(string($"Loaded table {_table_name_id} from range {_range_address_or_name} of sheet {_sheet_id} of connection {_connection_id}, in {(get_timer()-_t)/1000000} seconds"), , SPREAD_MESSAGE_LEVEL.INFO);			
+				__spread_log(string($"Loaded table {_table_name_id} from range {_range_address_or_name} of sheet {_sheet_id} of connection {_connection_id}, in {(get_timer()-_t)/1000000} seconds"), SPREAD_MESSAGE_LEVEL.INFO);			
 			}
 			
 			
