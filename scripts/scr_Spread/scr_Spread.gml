@@ -190,14 +190,14 @@
 		
 	/**
 	 * @desc	get properties (e.g. # of cols, # of rows) of a spreadsheet-like address or range
-	 * @param	{string}	_range		The address of the range (e.g. "h4", "C1004" "b1:AB220")
+	 * @param	{string}	_range		The address of the range (e.g. "h4", "C1004" "b1:AB220").
 	 * @param	{real}		[_idx]=0	The index to check, if the range is a range (0 for the top left cell, 1 for the bottom right cell)
 	 * @returns {struct}	a struct with col and row keys
 	 */
 	function __spread_range_get_properties(_range, _idx=0) {
 		var _rng = string_split(_range, ":");
 		if (array_length(_rng) == 1)	array_push(_rng, _rng[0]);
-		if (array_length(_rng) > 2 || string_length(string_letters(_rng[_idx])) == 0 || string_length(string_digits(_rng[_idx])) == 0)	__spread_log($"Invalid range provided, {_range}", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (array_length(_rng) > 2 || string_length(string_letters(_rng[_idx])) == 0 || string_length(string_digits(_rng[_idx])) == 0)	__spread_log($"Invalid range provided, {_range}. Note that you cannot use named ranges with this function!", SPREAD_MESSAGE_LEVEL.ERROR);
 		if (_idx < 0 || _idx > 1)	__spread_log($"Invalid index provided, {_idx}", SPREAD_MESSAGE_LEVEL.ERROR);	
 			
 		var _spec_range = string_upper(string_lettersdigits(_rng[_idx]));
@@ -230,7 +230,7 @@
 	function __spread_range_get_area(_range) {
 		var _rng = string_split(_range, ":");
 		if (array_length(_rng) == 1)	array_push(_rng, _rng[0]);
-		if (array_length(_rng) > 2)	__spread_log($"Invalid range provided, {_range}", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (array_length(_rng) > 2)	__spread_log($"Invalid range provided, {_range}. Note that you cannot use named ranges with this function!", SPREAD_MESSAGE_LEVEL.ERROR);
 				
 		return __spread_range_get_columns(_range) * __spread_range_get_rows(_range);
 	}
@@ -243,7 +243,7 @@
 	function __spread_range_get_rows(_range) {
 		var _rng = string_split(_range, ":");
 		if (array_length(_rng) == 1)	array_push(_rng, _rng[0]);
-		if (array_length(_rng) > 2)	__spread_log($"Invalid range provided, {_range}", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (array_length(_rng) > 2)	__spread_log($"Invalid range provided, {_range}. Note that you cannot use named ranges with this function!", SPREAD_MESSAGE_LEVEL.ERROR);
 				
 		var _props_top_left = __spread_range_get_properties(_range, 0);
 		var _props_bottom_right = __spread_range_get_properties(_range, 1);
@@ -260,7 +260,7 @@
 	function __spread_range_get_columns(_range) {
 		var _rng = string_split(_range, ":");
 		if (array_length(_rng) == 1)	array_push(_rng, _rng[0]);
-		if (array_length(_rng) > 2)	__spread_log($"Invalid range provided, {_range}", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (array_length(_rng) > 2)	__spread_log($"Invalid range provided, {_range}. Note that you cannot use named ranges with this function!", SPREAD_MESSAGE_LEVEL.ERROR);
 				
 		var _props_top_left = __spread_range_get_properties(_range, 0);
 		var _props_bottom_right = __spread_range_get_properties(_range, 1);
@@ -313,6 +313,20 @@
 		if (_col < 1 || _col > 16384) __spread_log($"Column address out of bounds, {_address}", SPREAD_MESSAGE_LEVEL.ERROR);
 
 		return _col;
+	}
+	
+	function __spread_named_range_resolve(_connection_id, _sheet_id, _range_name) {
+		if (!variable_struct_exists(global.Spread.connections[$ _connection_id].named_ranges, _range_name))	return undefined;
+		
+		var _range_address = global.Spread.connections[$ _connection_id].named_ranges[$ _range_name].address;
+		if (global.Spread.connections[$ _connection_id].named_ranges[$ _range_name].sheet != _sheet_id) {
+			__spread_log(string($"Found named range {_range_name} in sheet {global.Spread.connections[$ _sheet_id].named_ranges[$ _range_name].sheet}, which resolves to {_range_address}, but it seems it was requested from sheet {_sheet_id} instead! Double check the range name and/or sheet."), SPREAD_MESSAGE_LEVEL.WARNING);						
+		}
+		else {
+			__spread_log(string($"Found named range {_range_name} in sheet {_sheet_id}, which resolves to {_range_address}"), SPREAD_MESSAGE_LEVEL.INFO);
+		}
+		
+		return _range_address;
 	}
 			
 #endregion
@@ -779,7 +793,7 @@
 							"instruction": "findall", // description
 							"string_file": game_save_id+_folder+"/docProps/core.xml",
 							"pattern": "<dc:description[^>]*>([^<]*)</dc:description>"
-						},	
+						},
 					];
 					var _json_regex = json_stringify(_json);
 			
@@ -812,7 +826,7 @@
 				#endregion
 		
 		
-				#region Load spreadsheet program metadata
+				#region Load spreadsheet application metadata
 			
 					var _t = get_timer();
 			
@@ -868,6 +882,12 @@
 							"pattern": "( calcMode=\"[^\"]+\")"
 						},
 						{
+							"instruction": "findall", // defined names (only ranges are parsed)
+							"string_file": game_save_id+_folder+"/xl/workbook.xml",
+							"pattern": "<definedName name=\"([^\"]+)\"[^>]*>([^!]*)!?([A-Za-z0-9\$:]*)</definedName>"
+							
+						},
+						{
 							"instruction": "sub",
 							"string_file": game_save_id+_folder+"/xl/workbook.xml",
 							"pattern": "(\"[^\"]*\") ",
@@ -911,6 +931,17 @@
 			
 					// Calculation mode
 					global.Spread.connections[$ _connection_name].calculation_mode = (array_length(_sheets[0]) == 0) ? "auto" : _sheets[0][0];
+					
+					// Named ranges
+					global.Spread.connections[$ _connection_name].named_ranges = {};
+					for (var _i=0, _n=array_length(_sheets[1]); _i<_n; _i++) {
+						if (array_length( _sheets[1][_i] ) == 3) {
+							global.Spread.connections[$ _connection_name].named_ranges[$ _sheets[1][_i][0]] = {
+								"sheet": _sheets[1][_i][1],
+								"address": _sheets[1][_i][2],
+							}
+						}
+					}
 				
 					// Sheets
 					array_foreach(_sheets[array_length(_sheets)-1], method({_connection_name}, function(_elem) {
@@ -1060,6 +1091,13 @@
 				if (array_get_index(struct_get_names(global.Spread.connections[$ _connection_id].sheets), _sheet_id) == -1)	__spread_log(string($"Sheet {_sheet_id} not in spreadsheet {_connection_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
 				if (!is_array(_field_definition))	__spread_log(string($"_field_definition must be an array with items of type Spread_Field, {_field_definition}"), SPREAD_MESSAGE_LEVEL.ERROR);
 				
+				__spread_log(string($"Defining table [{_table_name_id}] from range [{_range_address_or_name}] of sheet [{_sheet_id}] of connection [{_connection_id}]..."), SPREAD_MESSAGE_LEVEL.INFO);			
+				
+				// Process named range
+				var _resolved_address = __spread_named_range_resolve(_connection_id, _sheet_id, _range_address_or_name);
+				if (_resolved_address != undefined)	_range_address_or_name = _resolved_address;
+				
+				
 				var _expected_fields = _shape_is_rows ? __spread_range_get_columns(_range_address_or_name) : __spread_range_get_rows(_range_address_or_name);
 				var _expected_items = _shape_is_rows ? __spread_range_get_rows(_range_address_or_name) : __spread_range_get_columns(_range_address_or_name);
 				
@@ -1080,7 +1118,7 @@
 				if (_field_error)	__spread_log(string($"Items of {_field_definition} array must be of type Spread_Field structs"), SPREAD_MESSAGE_LEVEL.ERROR);
 				if (_num_id != 1)	__spread_log(string($"There must be exactly one field defined as key or Spread_ID, instead got {_num_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
 				
-				__spread_log(string($"Defining table {_table_name_id} from range {_range_address_or_name} of sheet {_sheet_id} of connection {_connection_id}..."), SPREAD_MESSAGE_LEVEL.INFO);			
+				
 				
 				// TODO: named ranges!
 				var _rng = string_split(_range_address_or_name, ":");
