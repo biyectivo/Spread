@@ -1130,7 +1130,8 @@
 								__spread_log($"Cell {_cell} cannot be blank since it's being read as an Spread_ID: {_value}", SPREAD_MESSAGE_LEVEL.ERROR);
 							}
 							else {								
-								__spread_log($"Cell {_cell} is equal to [{_value}] (spreadsheet type [{_type}]), which does not match the defined schema: {_field}", SPREAD_MESSAGE_LEVEL.ERROR, _error_on_schema_validation_fail);
+								__spread_log($"Cell {_cell} equals [{_value}] (spreadsheet type [{_type}]), reading field [{_field.name}]; this does not match the defined field schema{_error_on_schema_validation_fail ? "" : " and will be set to undefined to continue processing"}. Schema: {_field}", SPREAD_MESSAGE_LEVEL.ERROR, _error_on_schema_validation_fail);
+								_values[$ _field.name] = undefined;
 							}							
 						}
 						else {
