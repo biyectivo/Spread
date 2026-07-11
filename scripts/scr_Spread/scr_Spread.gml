@@ -1113,11 +1113,13 @@
 					var _values = {};
 					for (var _field_num = _field_min; _field_num <= _field_max; _field_num++) {						
 						var _cell = _shape_is_rows ? __spread_col_to_address(_field_num)+string(_item_num) : __spread_col_to_address(_item_num)+string(_field_num);
+						var _field = _field_definition[_field_num-_field_min];
+						
 						if (variable_struct_exists(global.Spread.connections[$ _connection_id].sheets[$ _sheet_id].data, _cell)) {			
 							// Validate
 							var _value = global.Spread.connections[$ _connection_id].sheets[$ _sheet_id].data[$ _cell].value;
 							var _type = global.Spread.connections[$ _connection_id].sheets[$ _sheet_id].data[$ _cell].type;
-							var _field = _field_definition[_field_num-_field_min];
+							
 							if (_field.validate(_value, _existing_id_values)) {
 								if (_field_num-_field_min == _key_field_idx) {
 									_key = _value;
@@ -1134,8 +1136,11 @@
 								_values[$ _field.name] = undefined;
 							}							
 						}
+						else if (_field.required) {
+							__spread_log($"Cell {_cell} is blank in spreadsheet, reading field [{_field.name}], but the defined field schema marks it as required. Schema: {_field}", SPREAD_MESSAGE_LEVEL.ERROR, _error_on_schema_validation_fail);
+						}
 						else {
-							__spread_log($"Skipping {_cell}, no value in spreadsheet", SPREAD_MESSAGE_LEVEL.INFO);
+							__spread_log($"Skipping {_cell} since it's blank in spreadsheet (but field schema for {_field.name} is set as not required)", SPREAD_MESSAGE_LEVEL.INFO);
 						}
 					}
 					_ranges[$ _key] = _values;
