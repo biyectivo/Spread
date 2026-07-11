@@ -1080,6 +1080,8 @@
 				if (_field_error)	__spread_log(string($"Items of {_field_definition} array must be of type Spread_Field structs"), SPREAD_MESSAGE_LEVEL.ERROR);
 				if (_num_id != 1)	__spread_log(string($"There must be exactly one field defined as key or Spread_ID, instead got {_num_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
 				
+				__spread_log(string($"Defining table {_table_name_id} from range {_range_address_or_name} of sheet {_sheet_id} of connection {_connection_id}..."), SPREAD_MESSAGE_LEVEL.INFO);			
+				
 				// TODO: named ranges!
 				var _rng = string_split(_range_address_or_name, ":");
 				if (array_length(_rng) == 1)	array_push(_rng, _rng[0]);
@@ -1146,19 +1148,69 @@
 					_ranges[$ _key] = _values;
 				}
 				
-				global.Spread.connections[$ _connection_id].tables[$ _table_name_id] = _ranges;
+				global.Spread.tables[$ _table_name_id] = _ranges;
 				
 				__spread_log(string($"Loaded table {_table_name_id} from range {_range_address_or_name} of sheet {_sheet_id} of connection {_connection_id}, in {(get_timer()-_t)/1000000} seconds"), SPREAD_MESSAGE_LEVEL.INFO);			
 			}
 			
+			/**
+			 * @desc	gets a value from a Spread table
+			 * @param	{string}	_key		key name
+			 * @param	{string}	_field		field name
+			 * @param	{string}	_table_id	table id
+			 * @return	{any}		the corresponding value
+			 */			
+			function spread_get(_key, _field, _table_id) {
+				if (!struct_exists(global.Spread.tables, _table_id))							__spread_log($"Table {_table_id} is not defined", SPREAD_MESSAGE_LEVEL.ERROR);
+				if (!struct_exists(global.Spread.tables[$ _table_id], _key))					__spread_log($"Key {_key} within table {_table_id} does not exist", SPREAD_MESSAGE_LEVEL.ERROR);
+				if (!struct_exists(global.Spread.tables[$ _table_id][$ _key], _field))			__spread_log($"Field {_field} for key {_key} of table {_table_id} does not exist", SPREAD_MESSAGE_LEVEL.ERROR);
+				return global.Spread.tables[$ _table_id][$ _key][$ _field];
+			}
 			
+			/**
+			 * @desc	gets the struct corresponding to an item from a Spread table
+			 * @param	{string}	_key		key name
+			 * @param	{string}	_table_id	table id
+			 * @return	{struct}	the corresponding item
+			 */			
+			function spread_get_item(_key, _table_id) {
+				if (!struct_exists(global.Spread.tables, _table_id))							__spread_log($"Table {_table_id} is not defined", SPREAD_MESSAGE_LEVEL.ERROR);
+				if (!struct_exists(global.Spread.tables[$ _table_id], _key))					__spread_log($"Key {_key} within table {_table_id} does not exist", SPREAD_MESSAGE_LEVEL.ERROR);
+				return global.Spread.tables[$ _table_id][$ _key];
+			}
 			
+			/**
+			 * @desc	checks whether a key exists in a Spread table
+			 * @param	{string}	_key		key name
+			 * @param	{string}	_table_id	table id
+			 * @return	{boolean}	whether it exists or not
+			 */			
+			function spread_exists(_key, _table_id) {
+				if (!struct_exists(global.Spread.tables, _table_id))							__spread_log($"Table {_table_id} is not defined", SPREAD_MESSAGE_LEVEL.ERROR);
+				return struct_exists(global.Spread.tables[$ _table_id], _key);
+			}
 			
+			/**
+			 * @desc	gets an array of item structs from a Spread table that meet a condition
+			 * @param	{string}			_table_id			table id
+			 * @param	{function}			[_where_condition]	a function that takes an item as a parameter and returns true or false. If not provided or undefined, it will get all keys.
+			 * @return	{array<string>}		the keys of the items that meet the condition
+			 */			
+			function spread_get_item_keys(_table_id, _where_condition=function(_elem) {return true;}) {
+				if (!struct_exists(global.Spread.tables, _table_id))							__spread_log($"Table {_table_id} is not defined", SPREAD_MESSAGE_LEVEL.ERROR);
+				if (!is_callable(_where_condition))												__spread_log($"Provided function must be callable", SPREAD_MESSAGE_LEVEL.ERROR);
+				var _result = [];
+				var _keys = struct_get_names(global.Spread.tables[$ _table_id]);
+				for (var _i=0, _n=array_length(_keys); _i<_n; _i++) {
+					var _key = _keys[_i];
+					var _item = global.Spread.tables[$ _table_id][$ _key];
+					if (_where_condition(_item))	array_push(_result, _key);
+				}
+				return _result;
+			}
 			
-			
-	
-		#endregion	
-
+		#endregion
+		
 	#endregion
 
 #endregion
