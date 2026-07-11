@@ -1084,8 +1084,10 @@
 			 * @param	{real}		[_item_offset=0]												0-based index of the row/col from which to start reading values
 			 * @param	{enum}		[_shape_is_rows=true]										whether each row represents a data point (if true) or whether each column represents a data point (false)			 
 			 * @param	{boolean}	[_error_on_schema_validation_fail=true]						whether to throw an exception if the data does not match the defined schema
-			 * @param	{string}	[_item_validation_function=function() { return true; }]		optional function that operates on an item-by-item basis and validates it. Useful for cross-field logic. Must have one parameter that reads a specific item (without the key) and must return boolean.
-			 * @param	{string}	[_table_validation_function=function() { return true; }]	optional function that operates on a table basis and validates it. Useful for checksums and other inter-item validations. Must return boolean.
+			 * @param	{string}	[_item_validation_function=function() { return true; }]		optional function that operates on an item-by-item basis and validates it. Useful for cross-field logic. 
+			 *																					Must have one parameter that reads a specific item struct (without the key) and must return a boolean.
+			 * @param	{string}	[_table_validation_function=function() { return true; }]	optional function that operates on a table basis and validates it. Useful for checksums and other inter-item validations.
+			 *																					Must have one parameter that reads the complete table (struct of structs) and must return a boolean.
 			 * @param	{string}	[_force]=false												whether to reload the contents anyway, even if the sheet was previously loaded			 
 			 * @return	{struct_or_array}	a struct or array (depending on load mode) with the data fetched from the sheet
 			 */
@@ -1210,7 +1212,15 @@
 					}
 				}
 				
-				global.Spread.tables[$ _table_name_id] = _ranges;
+				// Table-level check
+				if (_table_validation_function(_ranges)) {				
+					global.Spread.tables[$ _table_name_id] = _ranges;
+				}
+				else {
+					var _additional_msg = _error_on_schema_validation_fail ? "" : " Processing will continue anyway because '_error_on_schema_validation_fail' was set to false.";
+					__spread_log($"All fields validate OK, but the complete table fails the provided table-level validation function.{_additional_msg}", SPREAD_MESSAGE_LEVEL.ERROR, _error_on_schema_validation_fail);
+					global.Spread.tables[$ _table_name_id] = _ranges;
+				}
 				
 				__spread_log(string($"Loaded table {_table_name_id} from range {_range_address_or_name} of sheet {_sheet_id} of connection {_connection_id}, in {(get_timer()-_t)/1000000} seconds"), SPREAD_MESSAGE_LEVEL.INFO);			
 			}
