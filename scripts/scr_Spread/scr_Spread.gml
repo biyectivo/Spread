@@ -164,6 +164,24 @@
 		}
 	}
 	
+	function Spread_FK(_name, _required, _foreign_table_name) : Spread_Schema() constructor {
+		self.name = _name;
+		self.required = _required;
+		self.foreign_table_name = _foreign_table_name;
+		
+		static validate = function(_value) {
+			if (is_undefined(_value)) {
+				return !self.required;
+			}
+			else {
+				return array_get_index(spread_get_item_keys(self.foreign_table_name), _value) != -1;
+			}
+		}
+		static toString = function() {
+			return string($"Spread_FK: {self.name}: required={self.required} foreign_table_name={self.foreign_table_name}");
+		}
+	}
+	
 	
 #endregion
 
