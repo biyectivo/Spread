@@ -170,7 +170,7 @@
 	
 	function Spread_FK(_name, _required, _foreign_table_name) : Spread_Schema() constructor {
 		if (!is_string(_name))		__spread_log($"'_name' must be a string: {_name}", SPREAD_MESSAGE_LEVEL.ERROR);
-		if (!spread_table_exists(_foreign_table_name))	__spread_log($"'_foreign_table_name' {_foreign_table_name} has not yet being defined", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (!spread_table_exists(_foreign_table_name))	__spread_log($"'_foreign_table_name' {_foreign_table_name} has not yet being defined. Note that you cannot self-reference the table being created.", SPREAD_MESSAGE_LEVEL.ERROR);
 		self.name = _name;
 		self.required = _required;
 		self.foreign_table_name = _foreign_table_name;
@@ -383,7 +383,7 @@
 			if (_message_level >= global.Spread.config.log_message_level) {
 				var _message = string($"{SPREAD_LOG_PREFIX} ({global.Spread.enums[$ "MESSAGE_LEVEL"][_message_level]}):  {_calling_from}: 	{_message_text}");
 				if (_message_level == SPREAD_MESSAGE_LEVEL.ERROR && _exception_on_error) {
-					throw(_message);
+					throw("\n"+_message);
 				}
 				else {
 					show_debug_message(_message);

@@ -21,22 +21,31 @@ spread_connect_xlsx("Test.xlsx", "db_game_data");
 //);
 
 
-spread_define_table("tbl_powers", "db_game_data", "Items", "powers", [
-	new Spread_ID("power_id"),
-	new Spread_String("power_description", true,, 20),
-	new Spread_Num("value", true, true, 0, 50, true),
-], 1);
+spread_define_table("tbl_items", "db_game_data", "Monsters", "c5:f8", [
+	new Spread_ID("monster"),
+	new Spread_Num("hp",true,true),
+	new Spread_Num("speed",true),
+	new Spread_Num("range",false)
+],1,false,,function(_item) {
+	return _item.speed + (_item.range ?? 0) <= 4;
+});
+
+//spread_define_table("tbl_powers", "db_game_data", "Items", "powers", [
+//	new Spread_ID("power_id"),
+//	new Spread_String("power_description", true,, 20),
+//	new Spread_Num("value", true, true, 0, 50, true),
+//], 1);
 
 
-spread_define_table("tbl_items", "db_game_data", "Items", "b3:h8", [
-	new Spread_ID("id"),
-	new Spread_String("item", true, 3, 25),
-	new Spread_Num("range", true, false, 0,,true),
-	new Spread_Num("attack", false, false, 0,,true),
-	new Spread_Num("power_attack", false, false, 0,, true),
-	new Spread_Boolean("can_break", true),
-	new Spread_FK("power", false, "tbl_powers")
-]);
+//spread_define_table("tbl_items", "db_game_data", "Items", "b3:h8", [
+//	new Spread_ID("id"),
+//	new Spread_String("item", true, 3, 25),
+//	new Spread_Num("range", true, false, 0,,true),
+//	new Spread_Num("attack", false, false, 0,,true),
+//	new Spread_Num("power_attack", false, false, 0,, true),
+//	new Spread_Boolean("can_break", true),
+//	new Spread_FK("power", false, "tbl_powers")
+//]);
 
 
 //spread_connect_xlsx("Test.xlsx", "db_game_data");
