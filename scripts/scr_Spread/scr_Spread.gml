@@ -1084,7 +1084,7 @@
 			 * @param	{real}		[_item_offset=0]												0-based index of the row/col from which to start reading values
 			 * @param	{enum}		[_shape_is_rows=true]										whether each row represents a data point (if true) or whether each column represents a data point (false)			 
 			 * @param	{boolean}	[_error_on_schema_validation_fail=true]						whether to throw an exception if the data does not match the defined schema
-			 * @param	{string}	[_item_validation_function=function() { return true; }]		optional function that operates on an item-by-item basis and validates it. Useful for cross-field logic. Must return boolean.
+			 * @param	{string}	[_item_validation_function=function() { return true; }]		optional function that operates on an item-by-item basis and validates it. Useful for cross-field logic. Must have one parameter that reads a specific item (without the key) and must return boolean.
 			 * @param	{string}	[_table_validation_function=function() { return true; }]	optional function that operates on a table basis and validates it. Useful for checksums and other inter-item validations. Must return boolean.
 			 * @param	{string}	[_force]=false												whether to reload the contents anyway, even if the sheet was previously loaded			 
 			 * @return	{struct_or_array}	a struct or array (depending on load mode) with the data fetched from the sheet
@@ -1097,6 +1097,9 @@
 				if (!is_bool(_shape_is_rows))	__spread_log(string($"'shape_is_rows' must be boolean, {_shape_is_rows}"), SPREAD_MESSAGE_LEVEL.ERROR);
 				if (!is_bool(_error_on_schema_validation_fail))	__spread_log(string($"'_error_on_schema_validation_fail' must be boolean, {_error_on_schema_validation_fail}"), SPREAD_MESSAGE_LEVEL.ERROR);
 				if (!is_bool(_force))	__spread_log(string($"'_force' must be boolean, {_force}"), SPREAD_MESSAGE_LEVEL.ERROR);
+				
+				if (!is_callable(_item_validation_function))	__spread_log(string($"Item-level validation function provided is invalid"), SPREAD_MESSAGE_LEVEL.ERROR);
+				if (!is_callable(_table_validation_function))	__spread_log(string($"Table-level validation function provided is invalid"), SPREAD_MESSAGE_LEVEL.ERROR);
 				
 				__spread_log(string($"Defining table [{_table_name_id}] from range [{_range_address_or_name}] of sheet [{_sheet_id}] of connection [{_connection_id}]..."), SPREAD_MESSAGE_LEVEL.INFO);			
 				
@@ -1162,7 +1165,7 @@
 						var _field = _field_definition[_field_num-_field_min];
 						
 						if (variable_struct_exists(global.Spread.connections[$ _connection_id].sheets[$ _sheet_id].data, _cell)) {			
-							// Validate
+							// Field-level validation vs schema
 							var _value = global.Spread.connections[$ _connection_id].sheets[$ _sheet_id].data[$ _cell].value;
 							var _type = global.Spread.connections[$ _connection_id].sheets[$ _sheet_id].data[$ _cell].type;
 							
@@ -1180,19 +1183,31 @@
 								__spread_log($"Cell {_cell} equals [{_value}] (spreadsheet type [{_type}]), reading field [{_field.name}] which is a key. {_key_error_text}Schema: {_field}", SPREAD_MESSAGE_LEVEL.ERROR);
 							}
 							else {								
-								__spread_log($"Cell {_cell} equals [{_value}] (spreadsheet type [{_type}]), reading field [{_field.name}]; this does not match the defined field schema{_error_on_schema_validation_fail ? "" : " and will be set to undefined to continue processing"}. Schema: {_field}", SPREAD_MESSAGE_LEVEL.ERROR, _error_on_schema_validation_fail);
+								var _additional_msg = _error_on_schema_validation_fail ? "" : " and will be set to undefined to continue processing, because '_error_on_schema_validation_fail' was set to false.";
+								__spread_log($"Cell {_cell} equals [{_value}] (spreadsheet type [{_type}]), reading field [{_field.name}]; this does not match the defined field schema{_additional_msg}. Schema: {_field}", SPREAD_MESSAGE_LEVEL.ERROR, _error_on_schema_validation_fail);
 								_values[$ _field.name] = undefined;
 							}							
 						}
 						else if (_field.required) {
 							var _key_error_text = _field_num-_field_min == _key_field_idx ? " because it is marked as a key" : "";
 							__spread_log($"Cell {_cell} is blank in spreadsheet, reading field [{_field.name}], but the defined field schema marks it as required{_key_error_text}. Schema: {_field}", SPREAD_MESSAGE_LEVEL.ERROR, _error_on_schema_validation_fail);
+							_values[$ _field.name] = undefined;
 						}
 						else {
-							__spread_log($"Skipping {_cell} since it's blank in spreadsheet (but field schema for {_field.name} is set as not required)", SPREAD_MESSAGE_LEVEL.INFO);
+							__spread_log($"Skipping {_cell} since it's blank in spreadsheet (but field schema for {_field.name} is set as not required), setting field to undefined", SPREAD_MESSAGE_LEVEL.INFO);
+							_values[$ _field.name] = undefined;
 						}
 					}
-					_ranges[$ _key] = _values;
+					
+					// Item-level check
+					if (_item_validation_function(_values)) {					
+						_ranges[$ _key] = _values;
+					}
+					else {
+						var _additional_msg = _error_on_schema_validation_fail ? "" : " Processing will continue anyway because '_error_on_schema_validation_fail' was set to false.";
+						__spread_log($"Fields for the current key [{_key}] individually match their schemas, but fail the provided item-level validation function.{_additional_msg}", SPREAD_MESSAGE_LEVEL.ERROR, _error_on_schema_validation_fail);
+						_ranges[$ _key] = _values;
+					}
 				}
 				
 				global.Spread.tables[$ _table_name_id] = _ranges;
