@@ -1,13 +1,20 @@
 ///@feather ignore all
 
 #macro		SPREAD_VERSION						"0.1"
+#macro		SPREAD_LOG_PREFIX					string($"[Spread v{SPREAD_VERSION}]:")
+
+
+#region Init
+
+	global.Spread = {};
+
+	global.Spread.connections = {};
+	global.Spread.tables = {};
+	global.Spread.table_metadata = {};
+		
+#endregion
 
 #region Enums 
-
-	enum SPREAD_MODE {
-		DEV,
-		PROD
-	}
 
 	enum SPREAD_MESSAGE_LEVEL {
 		INFO,
@@ -16,6 +23,14 @@
 		SYSTEM
 	}
 	
+#endregion
+
+#region String version of enums
+
+	global.Spread.enums = {};
+	global.Spread.enums[$ "SPREAD_MODE"] = ["DEV", "PROD"];
+	global.Spread.enums[$ "MESSAGE_LEVEL"] = ["INFO", "WARNING", "ERROR", "SYSTEM"];
+
 #endregion
 
 #region Validation Schemas
@@ -191,27 +206,6 @@
 	
 #endregion
 
-#region Init and default config
-
-	global.Spread = {};
-
-	global.Spread.connections = {};
-	global.Spread.tables = {};
-	
-	
-	global.Spread[$ "config"] = {
-
-		mode: SPREAD_MODE.DEV,
-		maintain_data_on_invalid_refresh: true,
-		live_reload_enabled: true,
-		log_message_level: SPREAD_MESSAGE_LEVEL.INFO,
-
-	};
-
-	
-
-#endregion
-
 #region Range/address management
 		
 	/**
@@ -357,14 +351,6 @@
 			
 #endregion
 
-#region String version of enums
-
-	global.Spread.enums = {};
-	global.Spread.enums[$ "SPREAD_MODE"] = ["DEV", "PROD"];
-	global.Spread.enums[$ "MESSAGE_LEVEL"] = ["INFO", "WARNING", "ERROR", "SYSTEM"];
-
-#endregion
-
 #region Functions
 
 	#region Helpers
@@ -380,8 +366,8 @@
 			var _callstack = debug_get_callstack();
 			var _calling_from = string_replace_all( array_length(_callstack) == 1 ? _callstack[0] : _callstack[1] , "gml_Script_", "");
 			_calling_from = string_split(_calling_from, ":")[0];
-			if (_message_level >= global.Spread.config.log_message_level) {
-				var _message = string($"{SPREAD_LOG_PREFIX} ({global.Spread.enums[$ "MESSAGE_LEVEL"][_message_level]}):  {_calling_from}: 	{_message_text}");
+			if (_message_level >= SPREAD_LOG_MESSAGE_LEVEL) {
+				var _message = string($"{SPREAD_LOG_PREFIX} ({global.Spread.enums[$ "MESSAGE_LEVEL"][SPREAD_LOG_MESSAGE_LEVEL]}):  {_calling_from}: 	{_message_text}");
 				if (_message_level == SPREAD_MESSAGE_LEVEL.ERROR && _exception_on_error) {
 					throw("\n"+_message);
 				}
@@ -533,6 +519,26 @@
 		}
 		
 		/**
+		 * @desc	generates a JSON file from a loaded Spread table
+		 * @param	{string}	_table_name_id	the table name
+		 * @return	{string}	the path to the JSON filename
+		 */
+		function __spread_generate_json_bundle(_table_name_id) {
+			if (array_get_index(struct_get_names(global.Spread.tables), _table_name_id) == -1)	__spread_log(string($"Table does not exist, {_table_name_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
+			
+			var _buffer = buffer_create(1, buffer_grow, 1);
+			buffer_write(_buffer, buffer_text, json_stringify(global.Spread.tables[$ _table_name_id]));
+			var _dir = string_pos("/", SPREAD_JSON_BUNDLE_PATHS) == 0 ? SPREAD_JSON_BUNDLE_PATHS+"/" : SPREAD_JSON_BUNDLE_PATHS;
+			var _ext = string_pos(".", SPREAD_JSON_BUNDLE_EXTENSION) == 0 ? "."+SPREAD_JSON_BUNDLE_EXTENSION : SPREAD_JSON_BUNDLE_EXTENSION;
+			var _filename = _dir+_table_name_id+_ext;
+			buffer_save(_buffer, _filename);
+			buffer_delete(_buffer);
+			
+			__spread_log(string($"Generated JSON file {_filename} from table {_table_name_id}"), SPREAD_MESSAGE_LEVEL.INFO);
+			return _filename;
+		}
+		
+		/**
 		 * @desc	reads the content of a sheet from an active spreadsheet connection
 		 * @param	{string}	_connection_id  the connection id
 		 * @param	{string}	_sheet_id		the worksheet name
@@ -549,8 +555,7 @@
 			
 			// Open rel sheet XML
 			var _conn = global.Spread.connections[$ _connection_id];
-			var _sha = SPREAD_CACHE_VERSIONS ? "_"+_conn.source_sha1 : ""
-			var _folder = string($"{_conn.connection_source}{_sha}/");
+			var _folder = string($"{_conn.connection_source}/");
 			var _sheet_file = _conn.sheets[$ _sheet_id].file;
 			var _file = string($"xl/{_sheet_file}");
 			
@@ -722,11 +727,11 @@
 			 * @desc	Establishes a connection to an XLSX file
 			 * @param	{string}	_filename				the filename. If Gamemaker is running sandboxed, the path relative to the datafiles/ folder; if not, the full path to the file
 			 * @param	{string}	_connection_name		a unique identifer to name the connection (e.g. "db_items", etc.)
-			 * @param	{bool}		[_force]=false			whether to conect again even if a cached connection exists
 			 * @returns {bool}		whether the connection was succcessful
 			 */
 			function spread_connect_xlsx(_filename, _connection_name, _force=false) {
-				if (struct_exists(global.Spread.connections, _connection_name))		__spread_log(string($"Connection already exists, {_connection_name}, type {global.Spread.connections[$ _connection_name].connection_type}, pointing to {global.Spread.connections[$ _connection_name].connection_source}"), SPREAD_MESSAGE_LEVEL.ERROR);
+				if (!is_bool(_force))	__spread_log(string($"'_force' must be boolean, {_force}"), SPREAD_MESSAGE_LEVEL.ERROR);
+				if (struct_exists(global.Spread.connections, _connection_name) && !_force)		__spread_log(string($"Connection already exists, {_connection_name}, type {global.Spread.connections[$ _connection_name].connection_type}, pointing to {global.Spread.connections[$ _connection_name].connection_source}, and force was not specified"), SPREAD_MESSAGE_LEVEL.ERROR);
 				if (!file_exists(_filename))	__spread_log(string($"File does not exist, {_filename}"),  SPREAD_MESSAGE_LEVEL.ERROR);
 			
 			
@@ -736,21 +741,10 @@
 				var _sha1 = buffer_sha1(_buffer, 0, buffer_get_size(_buffer));
 				buffer_delete(_buffer);
 			
-				// Check if file has changed
-				if (SPREAD_CACHE_VERSIONS) {
-					var _folder = string($"{_filename}_{_sha1}/");
-			
-					if (directory_exists(_folder) && !_force)	{
-						__spread_log(string($"File {_filename} has not changed since last processing, and force was not specified. Skipping file update."),  SPREAD_MESSAGE_LEVEL.INFO);
-						exit;
-					}
-			
-					if (_force)	__spread_log(string($"Forced update of file {_filename} has been specified, regardless of whether file was changed. File processing will proceed."),  SPREAD_MESSAGE_LEVEL.INFO);
-				}
-				else { // force has no effect
-					var _folder = string($"{_filename}/");	
-					if (directory_exists(_folder)) directory_destroy(_folder);				
-				}
+				// Delete old directory
+				var _folder = string($"{_filename}/");	
+				if (directory_exists(_folder)) directory_destroy(_folder);				
+				
 			
 				// Unzip the XLSX
 				zip_unzip(_filename, _folder);
@@ -1094,7 +1088,6 @@
 			}
 			
 			
-			
 			/**
 			 * @desc	Defines a new table from a range of a worksheet of an active spreadsheet connection
 			 * @param	{string}	_table_name_id												a unique identifier for the table (e.g. tbl_potions, etc.)
@@ -1258,6 +1251,18 @@
 				}
 				
 				__spread_log(string($"Loaded table {_table_name_id} from range {_range_address_or_name} of sheet {_sheet_id} of connection {_connection_id}, in {(get_timer()-_t)/1000000} seconds"), SPREAD_MESSAGE_LEVEL.INFO);			
+				
+				var _filename = __spread_generate_json_bundle(_table_name_id);				
+				
+				global.Spread.table_metadata[$ _table_name_id] = {
+					source_connection: _connection_id, 
+					source_table: _table_name_id,
+					source_range: _range_address_or_name,
+					source_offset: _item_offset,
+					table_loaded: date_datetime_string(date_current_datetime()),
+					table_sha1: sha1_string_utf8(json_stringify(_ranges)),
+					json_bundle_filename: _filename
+				};				
 			}
 			
 		#endregion
@@ -1288,6 +1293,26 @@
 				if (!struct_exists(global.Spread.tables, _table_id))							__spread_log($"Table {_table_id} is not defined", SPREAD_MESSAGE_LEVEL.ERROR);
 				if (!struct_exists(global.Spread.tables[$ _table_id], _key))					__spread_log($"Key {_key} within table {_table_id} does not exist", SPREAD_MESSAGE_LEVEL.ERROR);
 				return global.Spread.tables[$ _table_id][$ _key];
+			}
+			
+			/**
+				* @desc	gets the struct corresponding to a Spread table
+				* @param	{string}	_table_id	table id
+				* @return	{struct}	the corresponding item
+				*/			
+			function spread_get_table(_table_id) {
+				if (!struct_exists(global.Spread.tables, _table_id))							__spread_log($"Table {_table_id} is not defined", SPREAD_MESSAGE_LEVEL.ERROR);
+				return global.Spread.tables[$ _table_id];
+			}
+			
+			/**
+				* @desc	gets the metadata struct corresponding to a Spread table
+				* @param	{string}	_table_id	table id
+				* @return	{struct}	the corresponding item
+				*/			
+			function spread_get_table_metadata(_table_id) {
+				if (!struct_exists(global.Spread.tables, _table_id))							__spread_log($"Table {_table_id} is not defined", SPREAD_MESSAGE_LEVEL.ERROR);
+				return global.Spread.table_metadata[$ _table_id];
 			}
 			
 			/**
