@@ -154,11 +154,13 @@
 	
 	function Spread_ID(_name) : Spread_Schema() constructor {		
 		self.name = _name;
+		self.required = true;
+		
 		static validate = function(_value, _existing_values) {
-			return array_get_index(_existing_values, _value) == -1;
+			return !is_undefined(_value) && array_get_index(_existing_values, _value) == -1;
 		}
 		static toString = function() {
-			return string($"Spread_ID: {self.name}");
+			return string($"Spread_ID: {self.name}: required={self.required} unique=1");
 		}
 	}
 	
@@ -1082,14 +1084,19 @@
 			 * @param	{real}		[_item_offset=0]												0-based index of the row/col from which to start reading values
 			 * @param	{enum}		[_shape_is_rows=true]										whether each row represents a data point (if true) or whether each column represents a data point (false)			 
 			 * @param	{boolean}	[_error_on_schema_validation_fail=true]						whether to throw an exception if the data does not match the defined schema
+			 * @param	{string}	[_item_validation_function=function() { return true; }]		optional function that operates on an item-by-item basis and validates it. Useful for cross-field logic. Must return boolean.
+			 * @param	{string}	[_table_validation_function=function() { return true; }]	optional function that operates on a table basis and validates it. Useful for checksums and other inter-item validations. Must return boolean.
 			 * @param	{string}	[_force]=false												whether to reload the contents anyway, even if the sheet was previously loaded			 
 			 * @return	{struct_or_array}	a struct or array (depending on load mode) with the data fetched from the sheet
 			 */
-			function spread_define_table(_table_name_id, _connection_id, _sheet_id, _range_address_or_name, _field_definition, _item_offset = 0, _shape_is_rows=true,  _error_on_schema_validation_fail=true, _force = false) {
+			function spread_define_table(_table_name_id, _connection_id, _sheet_id, _range_address_or_name, _field_definition, _item_offset = 0, _shape_is_rows=true,  _error_on_schema_validation_fail=true, _item_validation_function = function() { return true; }, _table_validation_function = function() { return true; }, _force = false) {
 				if (array_get_index(struct_get_names(global.Spread.tables), _table_name_id) != -1)	__spread_log(string($"Table name already exists, {_table_name_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
 				if (array_get_index(struct_get_names(global.Spread.connections), _connection_id) == -1)	__spread_log(string($"Connection invalid or not established with spreadsheet, {_connection_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
 				if (array_get_index(struct_get_names(global.Spread.connections[$ _connection_id].sheets), _sheet_id) == -1)	__spread_log(string($"Sheet {_sheet_id} not in spreadsheet {_connection_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
 				if (!is_array(_field_definition))	__spread_log(string($"_field_definition must be an array with items of type Spread_Field, {_field_definition}"), SPREAD_MESSAGE_LEVEL.ERROR);
+				if (!is_bool(_shape_is_rows))	__spread_log(string($"'shape_is_rows' must be boolean, {_shape_is_rows}"), SPREAD_MESSAGE_LEVEL.ERROR);
+				if (!is_bool(_error_on_schema_validation_fail))	__spread_log(string($"'_error_on_schema_validation_fail' must be boolean, {_error_on_schema_validation_fail}"), SPREAD_MESSAGE_LEVEL.ERROR);
+				if (!is_bool(_force))	__spread_log(string($"'_force' must be boolean, {_force}"), SPREAD_MESSAGE_LEVEL.ERROR);
 				
 				__spread_log(string($"Defining table [{_table_name_id}] from range [{_range_address_or_name}] of sheet [{_sheet_id}] of connection [{_connection_id}]..."), SPREAD_MESSAGE_LEVEL.INFO);			
 				
@@ -1101,7 +1108,7 @@
 				var _expected_fields = _shape_is_rows ? __spread_range_get_columns(_range_address_or_name) : __spread_range_get_rows(_range_address_or_name);
 				var _expected_items = _shape_is_rows ? __spread_range_get_rows(_range_address_or_name) : __spread_range_get_columns(_range_address_or_name);
 				
-				if (_item_offset < 0 || _item_offset >= _expected_items)	__spread_log(string($"Invalid item offset, {_item_offset}, must be within the number of items in range"), SPREAD_MESSAGE_LEVEL.ERROR);
+				if (!is_numeric(_item_offset) || _item_offset < 0 || _item_offset >= _expected_items)	__spread_log(string($"Invalid item offset, {_item_offset}, must be within the number of items in range"), SPREAD_MESSAGE_LEVEL.ERROR);
 				if (array_length(_field_definition) != _expected_fields)	__spread_log(string($"_field_definition array must be of size {_expected_fields}, since the chosen shape is {_shape_is_rows ? "rows" : "columns"} and provided range is {_range_address_or_name}"), SPREAD_MESSAGE_LEVEL.ERROR);
 				var _field_error = false;
 				var _num_id = 0;
@@ -1117,10 +1124,9 @@
 				
 				if (_field_error)	__spread_log(string($"Items of {_field_definition} array must be of type Spread_Field structs"), SPREAD_MESSAGE_LEVEL.ERROR);
 				if (_num_id != 1)	__spread_log(string($"There must be exactly one field defined as key or Spread_ID, instead got {_num_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
+							
 				
 				
-				
-				// TODO: named ranges!
 				var _rng = string_split(_range_address_or_name, ":");
 				if (array_length(_rng) == 1)	array_push(_rng, _rng[0]);
 				if (array_length(_rng) > 2 || string_length(string_letters(_rng[0])) == 0 || string_length(string_digits(_rng[0])) == 0 || string_length(string_letters(_rng[1])) == 0 || string_length(string_digits(_rng[1])) == 0)	__spread_log($"Invalid range provided, {_range_formula_or_name}", SPREAD_MESSAGE_LEVEL.ERROR);
@@ -1161,15 +1167,17 @@
 							var _type = global.Spread.connections[$ _connection_id].sheets[$ _sheet_id].data[$ _cell].type;
 							
 							if (_field.validate(_value, _existing_id_values)) {
-								if (_field_num-_field_min == _key_field_idx) {
+								if (_field_num-_field_min == _key_field_idx) {									
 									_key = _value;
+									array_push(_existing_id_values, _key);
 								}
 								else {
 									_values[$ _field.name] = _value;
 								}
 							}
-							else if (_field_num-_field_min == _key_field_idx)	{
-								__spread_log($"Cell {_cell} cannot be blank since it's being read as an Spread_ID: {_value}", SPREAD_MESSAGE_LEVEL.ERROR);
+							else if (_field_num-_field_min == _key_field_idx) {
+								var _key_error_text = _error_on_schema_validation_fail ? " ": "Ignoring '_error_on_schema_validation_fail' since keys cannot fail the validation! ";								
+								__spread_log($"Cell {_cell} equals [{_value}] (spreadsheet type [{_type}]), reading field [{_field.name}] which is a key. {_key_error_text}Schema: {_field}", SPREAD_MESSAGE_LEVEL.ERROR);
 							}
 							else {								
 								__spread_log($"Cell {_cell} equals [{_value}] (spreadsheet type [{_type}]), reading field [{_field.name}]; this does not match the defined field schema{_error_on_schema_validation_fail ? "" : " and will be set to undefined to continue processing"}. Schema: {_field}", SPREAD_MESSAGE_LEVEL.ERROR, _error_on_schema_validation_fail);
@@ -1177,7 +1185,8 @@
 							}							
 						}
 						else if (_field.required) {
-							__spread_log($"Cell {_cell} is blank in spreadsheet, reading field [{_field.name}], but the defined field schema marks it as required. Schema: {_field}", SPREAD_MESSAGE_LEVEL.ERROR, _error_on_schema_validation_fail);
+							var _key_error_text = _field_num-_field_min == _key_field_idx ? " because it is marked as a key" : "";
+							__spread_log($"Cell {_cell} is blank in spreadsheet, reading field [{_field.name}], but the defined field schema marks it as required{_key_error_text}. Schema: {_field}", SPREAD_MESSAGE_LEVEL.ERROR, _error_on_schema_validation_fail);
 						}
 						else {
 							__spread_log($"Skipping {_cell} since it's blank in spreadsheet (but field schema for {_field.name} is set as not required)", SPREAD_MESSAGE_LEVEL.INFO);
