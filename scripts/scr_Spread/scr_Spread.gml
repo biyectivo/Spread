@@ -24,6 +24,7 @@
 	}
 	
 	function Spread_Num(_name, _required, _is_integer=false, _min=-infinity, _max=infinity, _exclusive_min=false, _exclusive_max=false, _allowed_list=[], _forbidden_list=[]) : Spread_Schema() constructor {
+		if (!is_string(_name))		__spread_log($"'_name' must be a string: {_name}", SPREAD_MESSAGE_LEVEL.ERROR);
 		self.name = _name;
 		if (!is_bool(_required))	__spread_log($"'_required' must be a boolean: {_required}", SPREAD_MESSAGE_LEVEL.ERROR);
 		if (!is_bool(_is_integer))	__spread_log($"'_is_integer' must be a boolean: {_is_integer}", SPREAD_MESSAGE_LEVEL.ERROR);
@@ -69,6 +70,7 @@
 	}
 	
 	function Spread_String(_name, _required, _min_length=0, _max_length=infinity, _allowed_list=[], _forbidden_list=[], _contains="", _does_not_contain="", _starts_with="", _ends_with="") : Spread_Schema() constructor {
+		if (!is_string(_name))		__spread_log($"'_name' must be a string: {_name}", SPREAD_MESSAGE_LEVEL.ERROR);
 		self.name = _name;
 		if (!is_bool(_required))				__spread_log($"'_required' must be a boolean: {_required}", SPREAD_MESSAGE_LEVEL.ERROR);
 		if (!is_real(_min_length))				__spread_log($"'_min_length' must be numeric: {_min_length}", SPREAD_MESSAGE_LEVEL.ERROR);
@@ -117,6 +119,7 @@
 	}
 	
 	function Spread_Boolean(_name, _required, _strict = false, _truthy = ["true", "TRUE", true, 1, "yes", "Y"], _falsy = ["false", "FALSE", false, 0, "no", "N"]) : Spread_Schema() constructor {
+		if (!is_string(_name))		__spread_log($"'_name' must be a string: {_name}", SPREAD_MESSAGE_LEVEL.ERROR);
 		self.name = _name;
 		if (!is_bool(_required))		__spread_log($"'_required' must be a boolean: {_required}", SPREAD_MESSAGE_LEVEL.ERROR);
 		if (!is_bool(_strict))			__spread_log($"'_strict' must be a boolean: {_strict}", SPREAD_MESSAGE_LEVEL.ERROR);
@@ -152,7 +155,8 @@
 		}
 	}
 	
-	function Spread_ID(_name) : Spread_Schema() constructor {		
+	function Spread_ID(_name) : Spread_Schema() constructor {	
+		if (!is_string(_name))		__spread_log($"'_name' must be a string: {_name}", SPREAD_MESSAGE_LEVEL.ERROR);
 		self.name = _name;
 		self.required = true;
 		
@@ -165,6 +169,8 @@
 	}
 	
 	function Spread_FK(_name, _required, _foreign_table_name) : Spread_Schema() constructor {
+		if (!is_string(_name))		__spread_log($"'_name' must be a string: {_name}", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (!spread_table_exists(_foreign_table_name))	__spread_log($"'_foreign_table_name' {_foreign_table_name} has not yet being defined", SPREAD_MESSAGE_LEVEL.ERROR);
 		self.name = _name;
 		self.required = _required;
 		self.foreign_table_name = _foreign_table_name;
@@ -1136,9 +1142,18 @@
 				var _field_error = false;
 				var _num_id = 0;
 				var _key_field_idx = undefined;
+				var _field_names = [];
 				for (var _i=0, _n=array_length(_field_definition); _i<_n; _i++) {
 					var _elem = _field_definition[_i];
-					_field_error = _field_error || !is_instanceof(_elem, Spread_Schema);					
+					_field_error = _field_error || !is_instanceof(_elem, Spread_Schema);
+					
+					if (array_get_index(_field_names, _elem.name) != -1) {
+						__spread_log(string($"Duplicate field name in field definition, {_elem.name}"), SPREAD_MESSAGE_LEVEL.ERROR);
+					}
+					else {
+						array_push(_field_names, _elem.name);
+					}
+					
 					if (is_instanceof(_elem, Spread_ID)) {
 						_num_id++;
 						_key_field_idx = _i;
@@ -1147,9 +1162,11 @@
 				
 				if (_field_error)	__spread_log(string($"Items of {_field_definition} array must be of type Spread_Field structs"), SPREAD_MESSAGE_LEVEL.ERROR);
 				if (_num_id != 1)	__spread_log(string($"There must be exactly one field defined as key or Spread_ID, instead got {_num_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
-							
+						
 				
+						
 				
+				// Start 
 				var _rng = string_split(_range_address_or_name, ":");
 				if (array_length(_rng) == 1)	array_push(_rng, _rng[0]);
 				if (array_length(_rng) > 2 || string_length(string_letters(_rng[0])) == 0 || string_length(string_digits(_rng[0])) == 0 || string_length(string_letters(_rng[1])) == 0 || string_length(string_digits(_rng[1])) == 0)	__spread_log($"Invalid range provided, {_range_formula_or_name}", SPREAD_MESSAGE_LEVEL.ERROR);
@@ -1243,13 +1260,17 @@
 				__spread_log(string($"Loaded table {_table_name_id} from range {_range_address_or_name} of sheet {_sheet_id} of connection {_connection_id}, in {(get_timer()-_t)/1000000} seconds"), SPREAD_MESSAGE_LEVEL.INFO);			
 			}
 			
+		#endregion
+				
+		#region Getters and checkers
+			
 			/**
-			 * @desc	gets a value from a Spread table
-			 * @param	{string}	_key		key name
-			 * @param	{string}	_field		field name
-			 * @param	{string}	_table_id	table id
-			 * @return	{any}		the corresponding value
-			 */			
+				* @desc	gets a value from a Spread table
+				* @param	{string}	_key		key name
+				* @param	{string}	_field		field name
+				* @param	{string}	_table_id	table id
+				* @return	{any}		the corresponding value
+				*/			
 			function spread_get(_key, _field, _table_id) {
 				if (!struct_exists(global.Spread.tables, _table_id))							__spread_log($"Table {_table_id} is not defined", SPREAD_MESSAGE_LEVEL.ERROR);
 				if (!struct_exists(global.Spread.tables[$ _table_id], _key))					__spread_log($"Key {_key} within table {_table_id} does not exist", SPREAD_MESSAGE_LEVEL.ERROR);
@@ -1258,11 +1279,11 @@
 			}
 			
 			/**
-			 * @desc	gets the struct corresponding to an item from a Spread table
-			 * @param	{string}	_key		key name
-			 * @param	{string}	_table_id	table id
-			 * @return	{struct}	the corresponding item
-			 */			
+				* @desc	gets the struct corresponding to an item from a Spread table
+				* @param	{string}	_key		key name
+				* @param	{string}	_table_id	table id
+				* @return	{struct}	the corresponding item
+				*/			
 			function spread_get_item(_key, _table_id) {
 				if (!struct_exists(global.Spread.tables, _table_id))							__spread_log($"Table {_table_id} is not defined", SPREAD_MESSAGE_LEVEL.ERROR);
 				if (!struct_exists(global.Spread.tables[$ _table_id], _key))					__spread_log($"Key {_key} within table {_table_id} does not exist", SPREAD_MESSAGE_LEVEL.ERROR);
@@ -1270,22 +1291,22 @@
 			}
 			
 			/**
-			 * @desc	checks whether a key exists in a Spread table
-			 * @param	{string}	_key		key name
-			 * @param	{string}	_table_id	table id
-			 * @return	{boolean}	whether it exists or not
-			 */			
+				* @desc	checks whether a key exists in a Spread table
+				* @param	{string}	_key		key name
+				* @param	{string}	_table_id	table id
+				* @return	{boolean}	whether it exists or not
+				*/			
 			function spread_exists(_key, _table_id) {
 				if (!struct_exists(global.Spread.tables, _table_id))							__spread_log($"Table {_table_id} is not defined", SPREAD_MESSAGE_LEVEL.ERROR);
 				return struct_exists(global.Spread.tables[$ _table_id], _key);
 			}
 			
 			/**
-			 * @desc	gets an array of item structs from a Spread table that meet a condition
-			 * @param	{string}			_table_id			table id
-			 * @param	{function}			[_where_condition]	a function that takes an item as a parameter and returns true or false. If not provided or undefined, it will get all keys.
-			 * @return	{array<string>}		the keys of the items that meet the condition
-			 */			
+				* @desc	gets an array of item structs from a Spread table that meet a condition
+				* @param	{string}			_table_id			table id
+				* @param	{function}			[_where_condition]	a function that takes an item as a parameter and returns true or false. If not provided or undefined, it will get all keys.
+				* @return	{array<string>}		the keys of the items that meet the condition
+				*/			
 			function spread_get_item_keys(_table_id, _where_condition=function(_elem) {return true;}) {
 				if (!struct_exists(global.Spread.tables, _table_id))							__spread_log($"Table {_table_id} is not defined", SPREAD_MESSAGE_LEVEL.ERROR);
 				if (!is_callable(_where_condition))												__spread_log($"Provided function must be callable", SPREAD_MESSAGE_LEVEL.ERROR);
@@ -1299,8 +1320,17 @@
 				return _result;
 			}
 			
+			/**
+				* @desc	checks whether a table exists
+				* @param	{string} _table_id	the table name
+				* @returns {bool} whether it has been defined
+				*/
+			function spread_table_exists(_table_id) {
+				return	struct_exists(global.Spread.tables, _table_id);
+			}
+				
 		#endregion
-		
+			
 	#endregion
 
 #endregion
