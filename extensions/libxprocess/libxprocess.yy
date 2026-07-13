@@ -116,7 +116,7 @@
   "packageId":"",
   "parent":{
     "name":"Extensions",
-    "path":"folders/Extensions.yy",
+    "path":"folders/Spread/Dependencies/Extensions.yy",
   },
   "productId":"",
   "resourceType":"GMExtension",

@@ -1,0 +1,1 @@
+draw_text(10, 10, spread_prod_mode());

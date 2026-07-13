@@ -367,7 +367,7 @@
 			var _calling_from = string_replace_all( array_length(_callstack) == 1 ? _callstack[0] : _callstack[1] , "gml_Script_", "");
 			_calling_from = string_split(_calling_from, ":")[0];
 			if (_message_level >= SPREAD_LOG_MESSAGE_LEVEL) {
-				var _message = string($"{SPREAD_LOG_PREFIX} ({global.Spread.enums[$ "MESSAGE_LEVEL"][SPREAD_LOG_MESSAGE_LEVEL]}):  {_calling_from}: 	{_message_text}");
+				var _message = string($"{SPREAD_LOG_PREFIX} ({global.Spread.enums[$ "MESSAGE_LEVEL"][_message_level]}):  {_calling_from}: 	{_message_text}");
 				if (_message_level == SPREAD_MESSAGE_LEVEL.ERROR && _exception_on_error) {
 					throw("\n"+_message);
 				}
@@ -732,6 +732,14 @@
 			function spread_connect_xlsx(_filename, _connection_name, _force=false) {
 				if (!is_bool(_force))	__spread_log(string($"'_force' must be boolean, {_force}"), SPREAD_MESSAGE_LEVEL.ERROR);
 				if (struct_exists(global.Spread.connections, _connection_name) && !_force)		__spread_log(string($"Connection already exists, {_connection_name}, type {global.Spread.connections[$ _connection_name].connection_type}, pointing to {global.Spread.connections[$ _connection_name].connection_source}, and force was not specified"), SPREAD_MESSAGE_LEVEL.ERROR);
+				
+				// Handle prod mode
+				if ( spread_prod_mode() ) {
+					__spread_log(string($"Prod mode detected, skipping XLSX connection"),  SPREAD_MESSAGE_LEVEL.INFO);
+					if (file_exists(_filename))		__spread_log(string($"Prod mode detected - removing the source XLSX {_filename} is highly recommended"),  SPREAD_MESSAGE_LEVEL.WARNING);
+					exit;
+				}
+				
 				if (!file_exists(_filename))	__spread_log(string($"File does not exist, {_filename}"),  SPREAD_MESSAGE_LEVEL.ERROR);
 			
 			
@@ -1078,8 +1086,16 @@
 			 * @param	{string}	_connection_name	The unique ID of the connection
 			 */
 			function spread_disconnect(_connection_name) {
+				// Handle prod mode
+				if ( spread_prod_mode() ) {
+					__spread_log(string($"Prod mode detected - no XLSX disconnection established"),  SPREAD_MESSAGE_LEVEL.INFO);
+					exit;
+				}
+				
 				if (!struct_exists(global.Spread.connections, _connection_name))		__spread_log(string($"Connection {_connection_name} does not exist"), SPREAD_MESSAGE_LEVEL.ERROR);
 				var _conn = global.Spread.connections[$ _connection_name];
+				
+				
 				if (_conn.connection_type == "xlsx") {
 					if (directory_exists(_conn.connection_cache_folder)) directory_destroy(_conn.connection_cache_folder);
 				}
@@ -1110,6 +1126,35 @@
 			 */
 			function spread_define_table(_table_name_id, _connection_id, _sheet_id, _range_address_or_name, _field_definition, _item_offset = 0, _shape_is_rows=true,  _error_on_schema_validation_fail=true, _item_validation_function = function() { return true; }, _table_validation_function = function() { return true; }, _force = false) {
 				if (array_get_index(struct_get_names(global.Spread.tables), _table_name_id) != -1)	__spread_log(string($"Table name already exists, {_table_name_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
+				
+				// Handle prod mode
+				if ( spread_prod_mode() ) {
+					__spread_log(string($"Prod mode detected - importing the JSON bundle instead"),  SPREAD_MESSAGE_LEVEL.INFO);
+					var _dir = working_directory + (string_pos("/", SPREAD_JSON_BUNDLE_PATHS) == 0 ? SPREAD_JSON_BUNDLE_PATHS+"/" : SPREAD_JSON_BUNDLE_PATHS);
+					var _ext = string_pos(".", SPREAD_JSON_BUNDLE_EXTENSION) == 0 ? "."+SPREAD_JSON_BUNDLE_EXTENSION : SPREAD_JSON_BUNDLE_EXTENSION;
+					var _filename = _dir+_table_name_id+_ext;
+					if (!file_exists(_filename))		__spread_log(string($"No JSON bundle found for {_table_name_id} at {_filename}"),  SPREAD_MESSAGE_LEVEL.ERROR);
+					
+					var _buffer = buffer_create(1, buffer_grow, 1);
+					_buffer = buffer_load(_filename);
+					var _ranges = json_parse(buffer_read(_buffer, buffer_text));
+					buffer_delete(_buffer);
+					
+					global.Spread.tables[$ _table_name_id] = _ranges;
+					global.Spread.table_metadata[$ _table_name_id] = {
+						source_type: "JSON",
+						source_connection: undefined, 
+						source_table: _table_name_id,
+						source_range: undefined,
+						source_offset: undefined,
+						table_loaded: date_datetime_string(date_current_datetime()),
+						table_sha1: sha1_string_utf8(json_stringify(_ranges)),
+						output_json_bundle_filename: _filename
+					};	
+					
+					exit;
+				}
+				
 				if (array_get_index(struct_get_names(global.Spread.connections), _connection_id) == -1)	__spread_log(string($"Connection invalid or not established with spreadsheet, {_connection_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
 				if (array_get_index(struct_get_names(global.Spread.connections[$ _connection_id].sheets), _sheet_id) == -1)	__spread_log(string($"Sheet {_sheet_id} not in spreadsheet {_connection_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
 				if (!is_array(_field_definition))	__spread_log(string($"_field_definition must be an array with items of type Spread_Field, {_field_definition}"), SPREAD_MESSAGE_LEVEL.ERROR);
@@ -1255,13 +1300,14 @@
 				var _filename = __spread_generate_json_bundle(_table_name_id);				
 				
 				global.Spread.table_metadata[$ _table_name_id] = {
+					source_type: "XLSX",
 					source_connection: _connection_id, 
 					source_table: _table_name_id,
 					source_range: _range_address_or_name,
 					source_offset: _item_offset,
 					table_loaded: date_datetime_string(date_current_datetime()),
 					table_sha1: sha1_string_utf8(json_stringify(_ranges)),
-					json_bundle_filename: _filename
+					output_json_bundle_filename: _filename
 				};				
 			}
 			
@@ -1352,6 +1398,10 @@
 				*/
 			function spread_table_exists(_table_id) {
 				return	struct_exists(global.Spread.tables, _table_id);
+			}
+			
+			function spread_prod_mode() {
+				return (!SPREAD_DEV_MODE || !SPREAD_ALLOW_DEV_MODE_OUTSIDE_IDE && GM_build_type == "exe" );
 			}
 				
 		#endregion

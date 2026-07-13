@@ -1,35 +1,34 @@
-
 spread_connect_xlsx("Test.xlsx", "db_game_data");
-//spread_define_table("tbl_items", "db_game_data", "Items", "b3:g8", [
-//	new Spread_ID("id"),
-//	new Spread_String("item", true, 3, 25),
-//	new Spread_Num("range", true, false, 0,,true),
-//	new Spread_Num("attack", false, false, 0,,true),
-//	new Spread_Num("power_attack", false, false, 0,, true),
-//	new Spread_Boolean("can_break", true)
-//],,,,function(_i) {
-//	return _i.range <= _i.attack;
-//},
-//function(_table) {
-//	var _sum = 0;
-//	var _keys = struct_get_names(_table);
-//	for (var _i=0, _n=array_length(_keys); _i<_n; _i++) {
-//		var _key = _keys[_i];
-//		_sum += _table[$ _key].range;
-//	}
-//	return _sum == 12.5;
-//}
-//);
+spread_define_table("tbl_items", "db_game_data", "Items", "b3:g8", [
+	new Spread_ID("id"),
+	new Spread_String("item", true, 3, 25),
+	new Spread_Num("range", true, false, 0,,true),
+	new Spread_Num("attack", false, false, 0,,true),
+	new Spread_Num("power_attack", false, false, 0,, true),
+	new Spread_Boolean("can_break", true)
+],,,,function(_i) {
+	return _i.range <= _i.attack;
+},
+function(_table) {
+	var _sum = 0;
+	var _keys = struct_get_names(_table);
+	for (var _i=0, _n=array_length(_keys); _i<_n; _i++) {
+		var _key = _keys[_i];
+		_sum += _table[$ _key].range;
+	}
+	return _sum == 12.5;
+}
+);
 
 
-spread_define_table("tbl_items", "db_game_data", "Monsters", "c5:f8", [
-	new Spread_ID("monster"),
-	new Spread_Num("hp",true,true),
-	new Spread_Num("speed",true),
-	new Spread_Num("range",false)
-],1,false,,function(_item) {
-	return _item.speed + (_item.range ?? 0) <= 4;
-});
+//spread_define_table("tbl_items", "db_game_data", "Monsters", "c5:f8", [
+//	new Spread_ID("monster"),
+//	new Spread_Num("hp",true,true),
+//	new Spread_Num("speed",true),
+//	new Spread_Num("range",false)
+//],1,false,,function(_item) {
+//	return _item.speed + (_item.range ?? 0) <= 4;
+//});
 
 //spread_define_table("tbl_powers", "db_game_data", "Items", "powers", [
 //	new Spread_ID("power_id"),
@@ -98,6 +97,17 @@ spread_define_table("tbl_items", "db_game_data", "Monsters", "c5:f8", [
 //});
 
 
+
+//spread_define_table("tbl_items", "db_game_data", "Items", "aj2:ao5001", [	
+//	new Spread_String("tuning_warning", true),
+//	new Spread_String("txt_formula", true),
+//	new Spread_String("upgrade", false,,10,,,,,"upg"),
+//	new Spread_Num("last_tuned_at", true, true, 0),
+//	new Spread_Boolean("min_max_valid", true, true),
+//	new Spread_ID("item_id"),
+//]);
+
+
 var _keys = spread_get_item_keys("tbl_items");
 for  (var _k=0, _n=array_length(_keys); _k<_n; _k++) {
 	var _key = _keys[_k];
@@ -113,4 +123,4 @@ spread_disconnect("db_game_data");
 
 //show_debug_message(json_stringify(global.Spread, true))
 
-game_end();
+//game_end();
