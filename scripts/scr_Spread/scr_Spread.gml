@@ -38,7 +38,7 @@
 	function Spread_Schema() constructor {
 	}
 	
-	function Spread_Num(_name, _required, _is_integer=false, _min=-infinity, _max=infinity, _exclusive_min=false, _exclusive_max=false, _allowed_list=[], _forbidden_list=[]) : Spread_Schema() constructor {
+	function Spread_Num(_name, _required, _is_integer=false, _min=-infinity, _max=infinity, _exclusive_min=false, _exclusive_max=false, _allowed_list=[], _forbidden_list=[], _treat_as_dates=false) : Spread_Schema() constructor {
 		if (!is_string(_name))		__spread_log($"'_name' must be a string: {_name}", SPREAD_MESSAGE_LEVEL.ERROR);
 		self.name = _name;
 		if (!is_bool(_required))	__spread_log($"'_required' must be a boolean: {_required}", SPREAD_MESSAGE_LEVEL.ERROR);
@@ -51,6 +51,7 @@
 		if (!is_array(_allowed_list))	__spread_log($"'allow_list' must be an array: {_allowed_list}", SPREAD_MESSAGE_LEVEL.ERROR);
 		if (!is_array(_forbidden_list))	__spread_log($"'_forbidden_list' must be an array: {_forbidden_list}", SPREAD_MESSAGE_LEVEL.ERROR);		
 		if (array_length(array_intersection(_allowed_list, _forbidden_list)) > 0)	__spread_log("Allowed and forbidden lists must be non-intersecting", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (!is_bool(_treat_as_dates))	__spread_log($"'_treat_as_dates' must be a boolean: {_treat_as_dates}", SPREAD_MESSAGE_LEVEL.ERROR);
 		
 		self.required = _required;
 		self.is_integer = _is_integer;
@@ -60,6 +61,7 @@
 		self.exclusive_max = _exclusive_max;
 		self.allowed_list = _allowed_list;
 		self.forbidden_list = _forbidden_list;
+		self.treat_as_dates = _treat_as_dates;
 		
 		static validate = function(_value) {			
 			if (is_undefined(_value)) {
@@ -80,7 +82,7 @@
 		}
 		
 		static toString = function() {
-			return string($"Spread_Num: {self.name}: required={self.required}, integer={self.is_integer}, min={self.min}, max={self.max}, exclusive_min={self.exclusive_min}, exclusive_max={self.exclusive_max}, allowed_list={self.allowed_list}, forbidden_list={self.forbidden_list}");
+			return string($"Spread_Num: {self.name}: required={self.required}, integer={self.is_integer}, min={self.min}, max={self.max}, exclusive_min={self.exclusive_min}, exclusive_max={self.exclusive_max}, allowed_list={self.allowed_list}, forbidden_list={self.forbidden_list} treat_as_dates={self.treat_as_dates}");
 		}
 	}
 	
@@ -375,6 +377,21 @@
 					show_debug_message(_message);
 				}
 			}
+		}
+		
+		
+		/**
+		 * @desc	pads a number to a given width with a padding char
+		 * @param	{int}			_number				the number
+		 * @param	{int}			_length				the length to pad to
+		 * @param	{string}		[_pad_chr]="0"		the pad char to use
+		 * @returns {string}		the padded string representation of the number
+		 */
+		function __spread_pad(_number, _length, _pad_chr="0") {
+			var _str = string(_number);
+			var _n = _length - string_length(_str);
+			if (_n <= 0)	return _str;
+			else			return string_repeat(_pad_chr, _n) + _str;
 		}
 		
 		#region Regex management
@@ -1250,7 +1267,14 @@
 									array_push(_existing_id_values, _key);
 								}
 								else {
-									_values[$ _field.name] = _value;
+									// Dates
+									if (is_instanceof(_field, Spread_Num) && _field.treat_as_dates) {
+										var _date = date_inc_day(date_create_datetime(1970, 1, 1, 0, 0, 0), _value-25569);										
+										_values[$ _field.name] = string(date_get_year(_date)) + "-" + __spread_pad(date_get_month(_date), 2) + "-" + __spread_pad(date_get_day(_date), 2);
+									}
+									else {
+										_values[$ _field.name] = _value;
+									}
 								}
 							}
 							else if (_field_num-_field_min == _key_field_idx) {
