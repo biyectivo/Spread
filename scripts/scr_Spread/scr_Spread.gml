@@ -1494,3 +1494,6 @@
 	#endregion
 
 #endregion
+
+
+__spread_log($"Welcome to Spread, a spreadsheet-driven robust data pipeline for Gamemaker, by manta ray!", SPREAD_MESSAGE_LEVEL.SYSTEM);
