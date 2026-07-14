@@ -48,7 +48,7 @@
 		if (_min > _max)			__spread_log($"'_min' must be <= '_max: {_min}, {_max}", SPREAD_MESSAGE_LEVEL.ERROR);
 		if (!is_bool(_exclusive_min))	__spread_log($"'_exclusive_min' must be a boolean: {_exclusive_min}", SPREAD_MESSAGE_LEVEL.ERROR);
 		if (!is_bool(_exclusive_max))	__spread_log($"'_exclusive_max' must be a boolean: {_exclusive_max}", SPREAD_MESSAGE_LEVEL.ERROR);
-		if (!is_array(_allowed_list))	__spread_log($"'allow_list' must be an array: {_allowed_list}", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (!is_array(_allowed_list))	__spread_log($"'_allowed_list' must be an array: {_allowed_list}", SPREAD_MESSAGE_LEVEL.ERROR);
 		if (!is_array(_forbidden_list))	__spread_log($"'_forbidden_list' must be an array: {_forbidden_list}", SPREAD_MESSAGE_LEVEL.ERROR);		
 		if (array_length(array_intersection(_allowed_list, _forbidden_list)) > 0)	__spread_log("Allowed and forbidden lists must be non-intersecting", SPREAD_MESSAGE_LEVEL.ERROR);
 		if (!is_bool(_treat_as_dates))	__spread_log($"'_treat_as_dates' must be a boolean: {_treat_as_dates}", SPREAD_MESSAGE_LEVEL.ERROR);
@@ -82,7 +82,7 @@
 		}
 		
 		static toString = function() {
-			return string($"Spread_Num: {self.name}: required={self.required}, integer={self.is_integer}, min={self.min}, max={self.max}, exclusive_min={self.exclusive_min}, exclusive_max={self.exclusive_max}, allowed_list={self.allowed_list}, forbidden_list={self.forbidden_list} treat_as_dates={self.treat_as_dates}");
+			return string($"Spread_Num: {self.name}: required={self.required}, integer={self.is_integer}, min={self.min}, max={self.max}, exclusive_min={self.exclusive_min}, exclusive_max={self.exclusive_max}, allowed_list={self.allowed_list}, forbidden_list={self.forbidden_list}, treat_as_dates={self.treat_as_dates}");
 		}
 	}
 	
@@ -97,7 +97,7 @@
 		if (!is_string(_does_not_contain))		__spread_log($"'_does_not_contain' must be a string: {_does_not_contain}", SPREAD_MESSAGE_LEVEL.ERROR);
 		if (!is_string(_starts_with))			__spread_log($"'_starts_with' must be a string: {_starts_with}", SPREAD_MESSAGE_LEVEL.ERROR);
 		if (!is_string(_ends_with))				__spread_log($"'_ends_with' must be a string: {_ends_with}", SPREAD_MESSAGE_LEVEL.ERROR);
-		if (!is_array(_allowed_list))			__spread_log($"'allow_list' must be an array: {_allowed_list}", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (!is_array(_allowed_list))			__spread_log($"'_allowed_list' must be an array: {_allowed_list}", SPREAD_MESSAGE_LEVEL.ERROR);
 		if (!is_array(_forbidden_list))			__spread_log($"'_forbidden_list' must be an array: {_forbidden_list}", SPREAD_MESSAGE_LEVEL.ERROR);		
 		if (array_length(array_intersection(_allowed_list, _forbidden_list)) > 0)	__spread_log("Allowed and forbidden lists must be non-intersecting", SPREAD_MESSAGE_LEVEL.ERROR);
 		
@@ -187,7 +187,7 @@
 	
 	function Spread_FK(_name, _required, _foreign_table_name) : Spread_Schema() constructor {
 		if (!is_string(_name))		__spread_log($"'_name' must be a string: {_name}", SPREAD_MESSAGE_LEVEL.ERROR);
-		if (!spread_table_exists(_foreign_table_name))	__spread_log($"'_foreign_table_name' {_foreign_table_name} has not yet being defined. Note that you cannot self-reference the table being created.", SPREAD_MESSAGE_LEVEL.ERROR);
+		if (!spread_table_exists(_foreign_table_name))	__spread_log($"'_foreign_table_name' {_foreign_table_name} has not yet been defined. Note that you cannot self-reference the table being created.", SPREAD_MESSAGE_LEVEL.ERROR);
 		self.name = _name;
 		self.required = _required;
 		self.foreign_table_name = _foreign_table_name;
@@ -337,7 +337,7 @@
 	}
 	
 	function __spread_named_range_resolve(_connection_id, _sheet_id, _range_name) {
-		if (!variable_struct_exists(global.Spread.connections[$ _connection_id].named_ranges, _range_name))	return undefined;
+		if (!struct_exists(global.Spread.connections[$ _connection_id].named_ranges, _range_name))	return undefined;
 		
 		var _range_address = global.Spread.connections[$ _connection_id].named_ranges[$ _range_name].address;
 		if (global.Spread.connections[$ _connection_id].named_ranges[$ _range_name].sheet != _sheet_id) {
@@ -571,16 +571,12 @@
 			
 			// Open rel sheet XML
 			var _conn = global.Spread.connections[$ _connection_id];
+			var _sha1 = _conn.source_sha1;
 			var _folder = _conn.connection_cache_folder;
 			var _sheet_file = _conn.sheets[$ _sheet_id].file;
 			var _file = string($"xl/{_sheet_file}");
 			
 			var _t = get_timer();
-			
-			var _buffer = buffer_create(1, buffer_grow, 1);
-			_buffer = buffer_load(_folder+_file);		
-			var _contents = buffer_read(_buffer, buffer_text);
-			buffer_delete(_buffer);
 			
 			// Perform range extractions
 			var _json = [					
@@ -616,16 +612,16 @@
 			
 			var _buffer = buffer_create(1, buffer_grow, 1);
 			buffer_write(_buffer, buffer_text, _json_regex);
-			buffer_save(_buffer, game_save_id+"__spread_json_input.json");
+			buffer_save(_buffer, string($"{game_save_id}__spread_json_input_{_sha1}.json"));
 			buffer_delete(_buffer);
 			
-			var _output = __spread_regex_json(game_save_id+"__spread_json_input.json", game_save_id+"__spread_json_output.json");
+			var _output = __spread_regex_json(string($"{game_save_id}__spread_json_input_{_sha1}.json"), string($"{game_save_id}__spread_json_output_{_sha1}.json"));
 			
 			// Read result from file
-			if (!file_exists(game_save_id+"__spread_json_output.json"))		__spread_log($"Error while parsing sheet {_sheet_id}", SPREAD_MESSAGE_LEVEL.ERROR);
+			if (!file_exists(string($"{game_save_id}__spread_json_output_{_sha1}.json")))		__spread_log($"Error while parsing sheet {_sheet_id}", SPREAD_MESSAGE_LEVEL.ERROR);
 			
 			var _buffer = buffer_create(1, buffer_grow, 1);
-			_buffer = buffer_load(game_save_id+"__spread_json_output.json");
+			_buffer = buffer_load(string($"{game_save_id}__spread_json_output_{_sha1}.json"));
 			var _range_data = buffer_read(_buffer, buffer_text);
 			buffer_delete(_buffer);
 			
@@ -726,8 +722,8 @@
 			}
 			
 			
-			if (file_exists(game_save_id+"__spread_json_input.json"))	file_delete(game_save_id+"__spread_json_input.json");
-			if (file_exists(game_save_id+"__spread_json_output.json"))	file_delete(game_save_id+"__spread_json_output.json");
+			if (file_exists(string($"{game_save_id}__spread_json_input_{_sha1}.json")))	file_delete(string($"{game_save_id}__spread_json_input_{_sha1}.json"));
+			if (file_exists(string($"{game_save_id}__spread_json_output_{_sha1}.json")))	file_delete(string($"{game_save_id}__spread_json_output_{_sha1}.json"));
 			
 			global.Spread.connections[$ _connection_id].sheets[$ _sheet_id].data = _ranges;			
 			global.Spread.connections[$ _connection_id].sheets[$ _sheet_id].loaded = true;
@@ -854,16 +850,16 @@
 			
 					var _buffer = buffer_create(1, buffer_grow, 1);
 					buffer_write(_buffer, buffer_text, _json_regex);
-					buffer_save(_buffer, game_save_id+"__spread_json_input.json");
+					buffer_save(_buffer, string($"{game_save_id}__spread_json_input_{_sha1}.json"));
 					buffer_delete(_buffer);
 			
-					var _output = __spread_regex_json(game_save_id+"__spread_json_input.json", game_save_id+"__spread_json_output.json");
+					var _output = __spread_regex_json(string($"{game_save_id}__spread_json_input_{_sha1}.json"), string($"{game_save_id}__spread_json_output_{_sha1}.json"));
 			
 					// Read result from file
-					if (!file_exists(game_save_id+"__spread_json_output.json"))		__spread_log("Error while parsing workbook metadata", SPREAD_MESSAGE_LEVEL.ERROR);
+					if (!file_exists(string($"{game_save_id}__spread_json_output_{_sha1}.json")))		__spread_log("Error while parsing workbook metadata", SPREAD_MESSAGE_LEVEL.ERROR);
 			
 					var _buffer = buffer_create(1, buffer_grow, 1);
-					_buffer = buffer_load(game_save_id+"__spread_json_output.json");
+					_buffer = buffer_load(string($"{game_save_id}__spread_json_output_{_sha1}.json"));
 					var  _metadata = json_parse(buffer_read(_buffer, buffer_text));
 					buffer_delete(_buffer);
 			
@@ -905,16 +901,16 @@
 			
 					var _buffer = buffer_create(1, buffer_grow, 1);
 					buffer_write(_buffer, buffer_text, _json_regex);
-					buffer_save(_buffer, game_save_id+"__spread_json_input.json");
+					buffer_save(_buffer, string($"{game_save_id}__spread_json_input_{_sha1}.json"));
 					buffer_delete(_buffer);
 			
-					var _output = __spread_regex_json(game_save_id+"__spread_json_input.json", game_save_id+"__spread_json_output.json");
+					var _output = __spread_regex_json(string($"{game_save_id}__spread_json_input_{_sha1}.json"), string($"{game_save_id}__spread_json_output_{_sha1}.json"));
 			
 					// Read result from file
-					if (!file_exists(game_save_id+"__spread_json_output.json"))		__spread_log("Error while parsing app metadata", SPREAD_MESSAGE_LEVEL.ERROR);
+					if (!file_exists(string($"{game_save_id}__spread_json_output_{_sha1}.json")))		__spread_log("Error while parsing app metadata", SPREAD_MESSAGE_LEVEL.ERROR);
 			
 					var _buffer = buffer_create(1, buffer_grow, 1);
-					_buffer = buffer_load(game_save_id+"__spread_json_output.json");
+					_buffer = buffer_load(string($"{game_save_id}__spread_json_output_{_sha1}.json"));
 					var  _metadata = json_parse(buffer_read(_buffer, buffer_text));
 					buffer_delete(_buffer);
 			
@@ -979,16 +975,16 @@
 			
 					var _buffer = buffer_create(1, buffer_grow, 1);
 					buffer_write(_buffer, buffer_text, _json_regex);
-					buffer_save(_buffer, game_save_id+"__spread_json_input.json");
+					buffer_save(_buffer, string($"{game_save_id}__spread_json_input_{_sha1}.json"));
 					buffer_delete(_buffer);
 			
-					var _output = __spread_regex_json(game_save_id+"__spread_json_input.json", game_save_id+"__spread_json_output.json");
+					var _output = __spread_regex_json(string($"{game_save_id}__spread_json_input_{_sha1}.json"), string($"{game_save_id}__spread_json_output_{_sha1}.json"));
 			
 					// Read result from file
-					if (!file_exists(game_save_id+"__spread_json_output.json"))		__spread_log("Error while parsing sheet names", SPREAD_MESSAGE_LEVEL.ERROR);
+					if (!file_exists(string($"{game_save_id}__spread_json_output_{_sha1}.json")))		__spread_log("Error while parsing sheet names", SPREAD_MESSAGE_LEVEL.ERROR);
 			
 					var _buffer = buffer_create(1, buffer_grow, 1);
-					_buffer = buffer_load(game_save_id+"__spread_json_output.json");
+					_buffer = buffer_load(string($"{game_save_id}__spread_json_output_{_sha1}.json"));
 					var  _sheets = json_parse(buffer_read(_buffer, buffer_text));
 					buffer_delete(_buffer);
 			
@@ -1015,11 +1011,6 @@
 						};
 					}));
 				
-					// Get corresponding sheet XML file (from rels file)
-					var _buffer = buffer_create(1, buffer_grow, 1);
-					_buffer = buffer_load(_folder+"/xl/_rels/workbook.xml.rels");
-					var _contents = buffer_read(_buffer, buffer_text);
-					buffer_delete(_buffer);
 				
 					// Perform extractions
 					var _json = [
@@ -1034,16 +1025,16 @@
 			
 					var _buffer = buffer_create(1, buffer_grow, 1);
 					buffer_write(_buffer, buffer_text, _json_regex);
-					buffer_save(_buffer, game_save_id+"__spread_json_input.json");
+					buffer_save(_buffer, string($"{game_save_id}__spread_json_input_{_sha1}.json"));
 					buffer_delete(_buffer);
 			
-					var _output = __spread_regex_json(game_save_id+"__spread_json_input.json", game_save_id+"__spread_json_output.json");
+					var _output = __spread_regex_json(string($"{game_save_id}__spread_json_input_{_sha1}.json"), string($"{game_save_id}__spread_json_output_{_sha1}.json"));
 			
 					// Read result from file
-					if (!file_exists(game_save_id+"__spread_json_output.json"))		__spread_log("Error while parsing sheet relationships", SPREAD_MESSAGE_LEVEL.ERROR);
+					if (!file_exists(string($"{game_save_id}__spread_json_output_{_sha1}.json")))		__spread_log("Error while parsing sheet relationships", SPREAD_MESSAGE_LEVEL.ERROR);
 				
 					var _buffer = buffer_create(1, buffer_grow, 1);
-					_buffer = buffer_load(game_save_id+"__spread_json_output.json");
+					_buffer = buffer_load(string($"{game_save_id}__spread_json_output_{_sha1}.json"));
 					var  _sheet_rels = json_parse(buffer_read(_buffer, buffer_text));
 					buffer_delete(_buffer);
 				
@@ -1089,16 +1080,16 @@
 			
 						var _buffer = buffer_create(1, buffer_grow, 1);
 						buffer_write(_buffer, buffer_text, _json_regex);
-						buffer_save(_buffer, game_save_id+"__spread_json_input.json");
+						buffer_save(_buffer, string($"{game_save_id}__spread_json_input_{_sha1}.json"));
 						buffer_delete(_buffer);
 			
-						var _output = __spread_regex_json(game_save_id+"__spread_json_input.json", game_save_id+"__spread_json_output.json");
+						var _output = __spread_regex_json(string($"{game_save_id}__spread_json_input_{_sha1}.json"), string($"{game_save_id}__spread_json_output_{_sha1}.json"));
 			
 						// Read result from file
-						if (!file_exists(game_save_id+"__spread_json_output.json"))		__spread_log("Error while parsing shared strings", SPREAD_MESSAGE_LEVEL.ERROR);
+						if (!file_exists(string($"{game_save_id}__spread_json_output_{_sha1}.json")))		__spread_log("Error while parsing shared strings", SPREAD_MESSAGE_LEVEL.ERROR);
 			
 						var _buffer = buffer_create(1, buffer_grow, 1);
-						_buffer = buffer_load(game_save_id+"__spread_json_output.json");
+						_buffer = buffer_load(string($"{game_save_id}__spread_json_output_{_sha1}.json"));
 						var  _strings = json_parse(buffer_read(_buffer, buffer_text));
 						buffer_delete(_buffer);
 				
@@ -1114,8 +1105,8 @@
 				#endregion
 						
 				
-				if (file_exists(game_save_id+"__spread_json_input.json"))	file_delete(game_save_id+"__spread_json_input.json");
-				if (file_exists(game_save_id+"__spread_json_output.json"))	file_delete(game_save_id+"__spread_json_output.json");
+				if (file_exists(string($"{game_save_id}__spread_json_input_{_sha1}.json")))	file_delete(string($"{game_save_id}__spread_json_input_{_sha1}.json"));
+				if (file_exists(string($"{game_save_id}__spread_json_output_{_sha1}.json")))	file_delete(string($"{game_save_id}__spread_json_output_{_sha1}.json"));
 			
 				__spread_log($"Connection named {_connection_name} successfully established to XLSX file {_filename}", SPREAD_MESSAGE_LEVEL.INFO);
 				//show_debug_message(global.Spread.connections[$ _connection_name]);
@@ -1127,6 +1118,7 @@
 			/**
 			 * @desc	Disconnects from an active Spread connection
 			 * @param	{string}	_connection_name	The unique ID of the connection
+			 * @return	{boolean}	true
 			 */
 			function spread_disconnect(_connection_name) {
 				// Handle prod mode
@@ -1146,6 +1138,8 @@
 				struct_remove(global.Spread.connections, _connection_name);
 				
 				__spread_log($"Disconnected from connection {_connection_name} (source file: {_conn.connection_source})", SPREAD_MESSAGE_LEVEL.INFO);
+				
+				return true;
 			}
 			
 			
@@ -1167,7 +1161,7 @@
 			 * @param	{string}	[_table_validation_function=function() { return true; }]	optional function that operates on a table basis and validates it. Useful for checksums and other inter-item validations.
 			 *																					Must have one parameter that reads the complete table (struct of structs) and must return a boolean.
 			 * @param	{string}	[_force]=false												whether to reload the contents anyway, even if the sheet was previously loaded			 
-			 * @return	{struct_or_array}	a struct or array (depending on load mode) with the data fetched from the sheet
+			 * @return	{boolean}	true
 			 */
 			function spread_define_table(_table_name_id, _connection_id, _sheet_id, _range_address_or_name, _field_definition, _item_offset = 0, _shape_is_rows=true,  _error_on_schema_validation_fail=true, _item_validation_function = function() { return true; }, _table_validation_function = function() { return true; }, _force = false) {
 				if (!_force && array_get_index(struct_get_names(global.Spread.tables), _table_name_id) != -1)	__spread_log(string($"Table name already exists, {_table_name_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
@@ -1290,7 +1284,7 @@
 						var _cell = _shape_is_rows ? __spread_col_to_address(_field_num)+string(_item_num) : __spread_col_to_address(_item_num)+string(_field_num);
 						var _field = _field_definition[_field_num-_field_min];
 						
-						if (variable_struct_exists(global.Spread.connections[$ _connection_id].sheets[$ _sheet_id].data, _cell)) {			
+						if (struct_exists(global.Spread.connections[$ _connection_id].sheets[$ _sheet_id].data, _cell)) {			
 							// Field-level validation vs schema
 							var _value = global.Spread.connections[$ _connection_id].sheets[$ _sheet_id].data[$ _cell].value;
 							var _type = global.Spread.connections[$ _connection_id].sheets[$ _sheet_id].data[$ _cell].type;
@@ -1374,7 +1368,9 @@
 					error_on_schema_validation_fail: _error_on_schema_validation_fail,
 					item_validation_function: _item_validation_function,
 					table_validation_function: _table_validation_function,					
-				};				
+				};
+				
+				return true;
 			}
 			
 			/**
@@ -1386,13 +1382,15 @@
 				
 				var _metadata = global.Spread.table_metadata[$ _table_name_id];
 				if (!struct_exists(global.Spread.connections, _metadata.source_connection))	__spread_log(string($"Source XLSX/sheet has disconnected, {_metadata.source_connection}"), SPREAD_MESSAGE_LEVEL.ERROR);
+				
+				__spread_log(string($"Reloading table {_table_name_id}..."), SPREAD_MESSAGE_LEVEL.INFO);
 				var _conn = global.Spread.connections[$ _metadata.source_connection];
 				
 				// Delete the previous directory as it's now based on SHA-1
 				if (directory_exists(_conn.connection_cache_folder)) directory_destroy(_conn.connection_cache_folder);
 				
 				spread_connect_xlsx(_conn.connection_source, _metadata.source_connection, true);				
-				spread_define_table(_table_name_id, _metadata.source_connection, _metadata.source_sheet, _metadata.source_range, _metadata.field_definition, _metadata.item_offset, _metadata.shape_is_rows, _metadata.error_on_schema_validation_fail, _metadata.item_validation_function, _metadata.table_validation_function, true);
+				spread_define_table(_table_name_id, _metadata.source_connection, _metadata.source_sheet, _metadata.source_range, _metadata.field_definition, _metadata.item_offset, _metadata.shape_is_rows, _metadata.error_on_schema_validation_fail, _metadata.item_validation_function, _metadata.table_validation_function, true);			
 			}
 			
 		#endregion
