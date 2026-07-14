@@ -570,11 +570,13 @@
 			}
 			
 			// Open rel sheet XML
-			var _conn = global.Spread.connections[$ _connection_id];
+			var _conn = global.Spread.connections[$ _connection_id];			
 			var _sha1 = _conn.source_sha1;
 			var _folder = _conn.connection_cache_folder;
 			var _sheet_file = _conn.sheets[$ _sheet_id].file;
 			var _file = string($"xl/{_sheet_file}");
+			
+			if (_conn.calculation_mode != "auto")	__spread_log($"Connection {_connection_id} refers to a workbook for which calculation mode is not completely automatic, '{_conn.calculation_mode}'. Remember that Spread does NOT recalculate formulas. If you want the latest values read from the worksheet, please make sure you manually recalculate and save again, or switch to automatic calculation mode", SPREAD_MESSAGE_LEVEL.WARNING);
 			
 			var _t = get_timer();
 			
@@ -740,7 +742,8 @@
 	
 			/**
 			 * @desc	Establishes a connection to an XLSX file
-			 * @param	{string}	_filename				the filename. If Gamemaker is running sandboxed, the path relative to the datafiles/ folder; if not, the full path to the file
+			 * @param	{string}	_filename				the XLSX filename, which must reside in the %LOCALAPPDATA%\Spread folder (e.g. C:\Users\<Username>\AppData\Local\Spread.
+			 *												NOTE: It's highly recommended not to place XLSX files in the datafiles/ folder of your project, as you can inadvertently ship these; also, live editing and reloading will not be possible.
 			 * @param	{string}	_connection_name		a unique identifer to name the connection (e.g. "db_items", etc.)
 			 * @param	{bool}		_force					whether to redo the connection
 			 * @returns {bool}		whether the connection was succcessful
