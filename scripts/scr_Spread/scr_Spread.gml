@@ -299,15 +299,14 @@
 	 * @returns {string} the corresponding letter
 	 */
 	function __spread_col_to_address(_column) {				
-		if (!is_real(_column) || _column < 1 || _column > 16384) __spread_log($"Invalid column number provided, {_column}", SPREAD_MESSAGE_LEVEL.ERROR);
-		var _col = round(_column);
-				
+		if (!is_numeric(_column) || floor(_column) != _column || _column < 1 || _column > 16384) __spread_log($"Invalid column number provided, {_column}", SPREAD_MESSAGE_LEVEL.ERROR);
+			
 		var _address = "";
 				
-		while (_col > 0) {
-			var _remainder = (_col - 1) % 26;
+		while (_column > 0) {
+			var _remainder = (_column - 1) % 26;
 			_address = chr(65 + _remainder) + _address;
-			_col = floor((_col - 1) / 26);
+			_column = floor((_column - 1) / 26);
 		}
 
 		return _address;
@@ -409,12 +408,12 @@
 		
 			/**
 			 * @desc	finds all matches (or all capture groups) of the regex within the string, similar to Python's findall. Automatically escapes the string
-			 * @param	{string}	_string			the string to parse
-			 * @param	{string}	_regex			a string with the regex to use
-			 * @param	{string}	[_flags]=""		optional string of flags to use when processing the regex (i=ignore-case, m=multiline, s=. matches newline, x=ignore whitespaces and comments, a=ascii, u=unicode)
+			 * @param	{string}	_string									the string to parse
+			 * @param	{string}	_regex									a string with the regex to use
+			 * @param	{string}	[_flags]=SPREAD_REGEX_DEFAULT_FLAGS		optional string of flags to use when processing the regex (i=ignore-case, m=multiline, s=. matches newline, x=ignore whitespaces and comments, a=ascii, u=unicode)
 			 * @returns {string}	a stringified JSON array with the matches
 			 */
-			function __spread_regex_findall(_string, _regex, _flags="") {
+			function __spread_regex_findall(_string, _regex, _flags=SPREAD_REGEX_DEFAULT_FLAGS) {
 				var _escaped_contents = __spread_regex_escape(_string);
 			
 				var _process = string($"regex findall {_escaped_contents} \"{_regex}\" {_flags}");
@@ -432,12 +431,12 @@
 			
 			/**
 			 * @desc	gets the index of the first match of the provided regex within the string. Automatically escapes the string
-			 * @param	{string}	_string			the string to parse
-			 * @param	{string}	_regex			a string with the regex to use
-			 * @param	{string}	[_flags]=""		optional string of flags to use when processing the regex (i=ignore-case, m=multiline, s=. matches newline, x=ignore whitespaces and comments, a=ascii, u=unicode)
+			 * @param	{string}	_string									the string to parse
+			 * @param	{string}	_regex									a string with the regex to use
+			 * @param	{string}	[_flags]=SPREAD_REGEX_DEFAULT_FLAGS		optional string of flags to use when processing the regex (i=ignore-case, m=multiline, s=. matches newline, x=ignore whitespaces and comments, a=ascii, u=unicode)
 			 * @returns {real}	returns the 0-based index if there's a match or -1 if not
 			 */
-			function __spread_regex_search(_string, _regex, _flags="") {
+			function __spread_regex_search(_string, _regex, _flags=SPREAD_REGEX_DEFAULT_FLAGS) {
 				var _escaped_contents = __spread_regex_escape(_string);
 			
 				var _process = string($"regex search {_escaped_contents} \"{_regex}\" {_flags}");
@@ -454,13 +453,13 @@
 		
 			/**
 			 * @desc	gets the index of the first match of the provided regex within the string. Automatically escapes the string
-			 * @param	{string}	_string						the string to parse
-			 * @param	{string}	_source_regex				a string with the source regex to use
-			 * @param	{string}	_replacement_regex			a string with the replacement regex to use
-			 * @param	{string}	[_flags]=""		optional string of flags to use when processing the regex (i=ignore-case, m=multiline, s=. matches newline, x=ignore whitespaces and comments, a=ascii, u=unicode)
+			 * @param	{string}	_string									the string to parse
+			 * @param	{string}	_source_regex							a string with the source regex to use
+			 * @param	{string}	_replacement_regex						a string with the replacement regex to use
+			 * @param	{string}	[_flags]=SPREAD_REGEX_DEFAULT_FLAGS		optional string of flags to use when processing the regex (i=ignore-case, m=multiline, s=. matches newline, x=ignore whitespaces and comments, a=ascii, u=unicode)
 			 * @returns {string}	the replaced string, or a stringified JSON array of replaced strings
 			 */
-			function __spread_regex_sub(_string, _source_regex, _replacement_regex, _flags="") {
+			function __spread_regex_sub(_string, _source_regex, _replacement_regex, _flags=SPREAD_REGEX_DEFAULT_FLAGS) {
 				var _escaped_contents = _string;
 			
 				var _process = string($"regex sub \"{_escaped_contents}\" \"{_source_regex}\" \"{_replacement_regex}\" {_flags}");
@@ -589,25 +588,28 @@
 					"instruction": "sub", // get rid of "empty" cells (due to merged ranges mainly)
 					"string_file": _folder+_file,
 					"pattern": "<c ([^>]+)/>",
-					"replacement": ""
+					"replacement": "",
+					"flags": SPREAD_REGEX_DEFAULT_FLAGS
 				},
 				{
 					"instruction": "findall", // get range and content of each range
 					"string": "$PREV$",
-					"pattern": "<c (?P<attrs>[^>/]*?)(?:/>|>(?P<body>.*?)</c>)"
+					"pattern": "<c (?P<attrs>[^>/]*?)(?:/>|>(?P<body>.*?)</c>)",
+					"flags": SPREAD_REGEX_DEFAULT_FLAGS
 				},
 				{
 					"instruction": "sub", // values
 					"string": "$PREV$",
 					"pattern": "<v>([^<]*)</v>",
-					//"replacement": "\"v\"=$1#"
-					"replacement": "v=$1"+SPREAD_REGEX_PROCESSING_CHAR
+					"replacement": "v=$1"+SPREAD_REGEX_PROCESSING_CHAR,
+					"flags": SPREAD_REGEX_DEFAULT_FLAGS					
 				},
 				{
 					"instruction": "sub", // formulas
 					"string": "$PREV$",
 					"pattern": "<f([^>]*)(?:/>|>([^<]*)</f>)",
-					"replacement": "f=$2"+SPREAD_REGEX_PROCESSING_CHAR+"$1"+SPREAD_REGEX_PROCESSING_CHAR
+					"replacement": "f=$2"+SPREAD_REGEX_PROCESSING_CHAR+"$1"+SPREAD_REGEX_PROCESSING_CHAR,
+					"flags": SPREAD_REGEX_DEFAULT_FLAGS
 				},
 			];
 			var _json_regex = json_stringify(_json);
@@ -620,7 +622,7 @@
 			var _output = __spread_regex_json(game_save_id+"__spread_json_input.json", game_save_id+"__spread_json_output.json");
 			
 			// Read result from file
-			if (!file_exists(game_save_id+"__spread_json_output.json"))		__spread_log($"Error while parsing range {_range_formula_or_name} from sheet {_sheet_id}", SPREAD_MESSAGE_LEVEL.ERROR);
+			if (!file_exists(game_save_id+"__spread_json_output.json"))		__spread_log($"Error while parsing sheet {_sheet_id}", SPREAD_MESSAGE_LEVEL.ERROR);
 			
 			var _buffer = buffer_create(1, buffer_grow, 1);
 			_buffer = buffer_load(game_save_id+"__spread_json_output.json");
@@ -638,7 +640,7 @@
 			for (var _i=0, _n=array_length(_range_data); _i<_n; _i++) {
 				var _parts = json_parse(_range_data[_i])
 					
-				if (array_length(_parts) != 2)	__spread_log($"Unexpected data found while fetching range {_range_formula_or_name} from sheet {_sheet_id}: {_data}", SPREAD_MESSAGE_LEVEL.ERROR);
+				if (array_length(_parts) != 2)	__spread_log($"Unexpected data found while parsing sheet {_sheet_id}: {_parts}", SPREAD_MESSAGE_LEVEL.ERROR);
 				
 				// Parse the metadata first...
 				var _range_metadata = string_split(_parts[0], " ");
@@ -768,7 +770,7 @@
 				buffer_delete(_buffer);
 			
 				// Delete old directory
-				var _folder = string($"{game_save_id}{_filename}_contents/");	
+				var _folder = string($"{game_save_id}spread_{_sha1}_contents/");	
 				if (directory_exists(_folder)) directory_destroy(_folder);				
 				
 			
@@ -808,37 +810,44 @@
 						{
 							"instruction": "findall", // title
 							"string_file": _folder+"/docProps/core.xml",
-							"pattern": "<dc:title[^>]*>([^<]*)</dc:title>"
+							"pattern": "<dc:title[^>]*>([^<]*)</dc:title>",
+							"flags": SPREAD_REGEX_DEFAULT_FLAGS
 						},
 						{
 							"instruction": "findall", // creator
 							"string_file": _folder+"/docProps/core.xml",
-							"pattern": "<dc:creator[^>]*>([^<]*)</dc:creator>"
+							"pattern": "<dc:creator[^>]*>([^<]*)</dc:creator>",
+							"flags": SPREAD_REGEX_DEFAULT_FLAGS
 						},
 						{
 							"instruction": "findall", // last modified by
 							"string_file": _folder+"/docProps/core.xml",
-							"pattern": "<cp:lastModifiedBy[^>]*>([^<]*)</cp:lastModifiedBy>"
+							"pattern": "<cp:lastModifiedBy[^>]*>([^<]*)</cp:lastModifiedBy>",
+							"flags": SPREAD_REGEX_DEFAULT_FLAGS
 						},
 						{
 							"instruction": "findall", // date created
 							"string_file": _folder+"/docProps/core.xml",
-							"pattern": "<dcterms:created[^>]*>([^<]*)</dcterms:created>"
+							"pattern": "<dcterms:created[^>]*>([^<]*)</dcterms:created>",
+							"flags": SPREAD_REGEX_DEFAULT_FLAGS
 						},
 						{
 							"instruction": "findall", // date modified
 							"string_file": _folder+"/docProps/core.xml",
-							"pattern": "<dcterms:modified[^>]*>([^<]*)</dcterms:modified>"
+							"pattern": "<dcterms:modified[^>]*>([^<]*)</dcterms:modified>",
+							"flags": SPREAD_REGEX_DEFAULT_FLAGS
 						},
 						{
 							"instruction": "findall", // subject
 							"string_file": _folder+"/docProps/core.xml",
-							"pattern": "<dc:subject[^>]*>([^<]*)</dc:subject>"
+							"pattern": "<dc:subject[^>]*>([^<]*)</dc:subject>",
+							"flags": SPREAD_REGEX_DEFAULT_FLAGS
 						},
 						{
 							"instruction": "findall", // description
 							"string_file": _folder+"/docProps/core.xml",
-							"pattern": "<dc:description[^>]*>([^<]*)</dc:description>"
+							"pattern": "<dc:description[^>]*>([^<]*)</dc:description>",
+							"flags": SPREAD_REGEX_DEFAULT_FLAGS
 						},
 					];
 					var _json_regex = json_stringify(_json);
@@ -882,12 +891,14 @@
 						{
 							"instruction": "findall", // application
 							"string_file": _folder+"/docProps/app.xml",
-							"pattern": "<Application[^>]*>([^<]*)</Application>"
+							"pattern": "<Application[^>]*>([^<]*)</Application>",
+							"flags": SPREAD_REGEX_DEFAULT_FLAGS
 						},
 						{
 							"instruction": "findall", // creator
 							"string_file": _folder+"/docProps/app.xml",
-							"pattern": "<AppVersion[^>]*>([^<]*)</AppVersion>"
+							"pattern": "<AppVersion[^>]*>([^<]*)</AppVersion>",
+							"flags": SPREAD_REGEX_DEFAULT_FLAGS
 						},
 					];
 					var _json_regex = json_stringify(_json);
@@ -925,36 +936,42 @@
 						{
 							"instruction": "findall", // calculation mode
 							"string_file": _folder+"/xl/workbook.xml",
-							"pattern": "( calcMode=\"[^\"]+\")"
+							"pattern": " calcMode=\"([^\"]+)\"",
+							"flags": SPREAD_REGEX_DEFAULT_FLAGS
 						},
 						{
 							"instruction": "findall", // defined names (only ranges are parsed)
 							"string_file": _folder+"/xl/workbook.xml",
-							"pattern": "<definedName name=\"([^\"]+)\"[^>]*>([^!]*)!?([A-Za-z0-9\$:]*)</definedName>"
+							"pattern": "<definedName name=\"([^\"]+)\"[^>]*>([^!]*)!?([A-Za-z0-9\$:]*)</definedName>",
+							"flags": SPREAD_REGEX_DEFAULT_FLAGS
 							
 						},
 						{
 							"instruction": "sub",
 							"string_file": _folder+"/xl/workbook.xml",
 							"pattern": "(\"[^\"]*\") ",
-							"replacement": "${1},"
+							"replacement": "${1},",
+							"flags": SPREAD_REGEX_DEFAULT_FLAGS
 						},
 						{
 							"instruction": "findall",
 							"string": "$PREV$",
-							"pattern": "<sheet ([^\/]+)/>"
+							"pattern": "<sheet ([^\/]+)/>",
+							"flags": SPREAD_REGEX_DEFAULT_FLAGS
 						},
 						{
 							"instruction": "sub",
 							"string": "$PREV$",
 							"pattern": "=",
-							"replacement": ":"
+							"replacement": ":",
+							"flags": SPREAD_REGEX_DEFAULT_FLAGS
 						},
 						{
 							"instruction": "sub",
 							"string": "$PREV$",
 							"pattern": "([^\",]+):",
-							"replacement": "\"$1\":"
+							"replacement": "\"$1\":",
+							"flags": SPREAD_REGEX_DEFAULT_FLAGS
 						},
 				
 					];
@@ -1009,7 +1026,8 @@
 						{
 							"instruction": "findall", // relationships
 							"string_file": _folder+"/xl/_rels/workbook.xml.rels",
-							"pattern": "Id=(\"[^\"]+\").*?Target=(\"[^\"]+\")"
+							"pattern": "Id=(\"[^\"]+\").*?Target=(\"[^\"]+\")",
+							"flags": SPREAD_REGEX_DEFAULT_FLAGS
 						},
 					];
 					var _json_regex = json_stringify(_json);
@@ -1054,36 +1072,43 @@
 				
 				#region Load shared strings
 			
-					var _t = get_timer();
+					if (file_exists(_folder+"/xl/sharedStrings.xml")) {
+						
+						var _t = get_timer();
+					
+						// Perform extractions and subs
+						var _json = [					
+							{
+								"instruction": "findall", // strings
+								"string_file": _folder+"/xl/sharedStrings.xml",
+								"pattern": "<si><t[^>]*?>([^<]+)</t></si>",
+								"flags": SPREAD_REGEX_DEFAULT_FLAGS
+							}
+						];
+						var _json_regex = json_stringify(_json);
 			
-					// Perform extractions and subs
-					var _json = [					
-						{
-							"instruction": "findall", // strings
-							"string_file": _folder+"/xl/sharedStrings.xml",
-							"pattern": "<si><t[^>]*?>([^<]+)</t></si>"
-						}
-					];
-					var _json_regex = json_stringify(_json);
+						var _buffer = buffer_create(1, buffer_grow, 1);
+						buffer_write(_buffer, buffer_text, _json_regex);
+						buffer_save(_buffer, game_save_id+"__spread_json_input.json");
+						buffer_delete(_buffer);
 			
-					var _buffer = buffer_create(1, buffer_grow, 1);
-					buffer_write(_buffer, buffer_text, _json_regex);
-					buffer_save(_buffer, game_save_id+"__spread_json_input.json");
-					buffer_delete(_buffer);
+						var _output = __spread_regex_json(game_save_id+"__spread_json_input.json", game_save_id+"__spread_json_output.json");
 			
-					var _output = __spread_regex_json(game_save_id+"__spread_json_input.json", game_save_id+"__spread_json_output.json");
+						// Read result from file
+						if (!file_exists(game_save_id+"__spread_json_output.json"))		__spread_log("Error while parsing shared strings", SPREAD_MESSAGE_LEVEL.ERROR);
 			
-					// Read result from file
-					if (!file_exists(game_save_id+"__spread_json_output.json"))		__spread_log("Error while parsing shared strings", SPREAD_MESSAGE_LEVEL.ERROR);
-			
-					var _buffer = buffer_create(1, buffer_grow, 1);
-					_buffer = buffer_load(game_save_id+"__spread_json_output.json");
-					var  _strings = json_parse(buffer_read(_buffer, buffer_text));
-					buffer_delete(_buffer);
+						var _buffer = buffer_create(1, buffer_grow, 1);
+						_buffer = buffer_load(game_save_id+"__spread_json_output.json");
+						var  _strings = json_parse(buffer_read(_buffer, buffer_text));
+						buffer_delete(_buffer);
 				
-					global.Spread.connections[$ _connection_name].shared_strings = _strings[0];
+						global.Spread.connections[$ _connection_name].shared_strings = _strings[0];
 				
-					__spread_log(string($"Parsed shared strings in {(get_timer()-_t)/1000000} seconds"), SPREAD_MESSAGE_LEVEL.INFO);
+						__spread_log(string($"Parsed shared strings in {(get_timer()-_t)/1000000} seconds"), SPREAD_MESSAGE_LEVEL.INFO);
+					}
+					else {
+						global.Spread.connections[$ _connection_name].shared_strings = [];
+					}
 				
 			
 				#endregion
@@ -1130,7 +1155,7 @@
 			 * @param	{string}	_connection_id												the connection id
 			 * @param	{string}	_sheet_id													the worksheet name
 			 * @param	{string}	_range_address_or_name										the range address (e.g. B2:U67) or named range (e.g. RangeItems) to fetch
-			 * @param	{array}		_field_definition											an array of Spread_Field items, defining the name of the key (i.e. field) and the schema used to validate that field
+			 * @param	{array}		_field_definition											an array of Spread_Schema items, defining the name of the key (i.e. field) and the schema used to validate that field
 			 *																					the array must be of the same size as the # of columns (if the shape is rows) or the # of rows (if the shape is columns)
 			 *																					for each position of the array, a field will be configured in the destination table, and data will be validated against the corresponding schema
 			 *																					NOTE: exactly one of the schemas MUST have Spread_ID schema
@@ -1185,7 +1210,7 @@
 				
 				if (array_get_index(struct_get_names(global.Spread.connections), _connection_id) == -1)	__spread_log(string($"Connection invalid or not established with spreadsheet, {_connection_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
 				if (array_get_index(struct_get_names(global.Spread.connections[$ _connection_id].sheets), _sheet_id) == -1)	__spread_log(string($"Sheet {_sheet_id} not in spreadsheet {_connection_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
-				if (!is_array(_field_definition))	__spread_log(string($"_field_definition must be an array with items of type Spread_Field, {_field_definition}"), SPREAD_MESSAGE_LEVEL.ERROR);
+				if (!is_array(_field_definition))	__spread_log(string($"_field_definition must be an array with items of type Spread_Schema, {_field_definition}"), SPREAD_MESSAGE_LEVEL.ERROR);
 				if (!is_bool(_shape_is_rows))	__spread_log(string($"'shape_is_rows' must be boolean, {_shape_is_rows}"), SPREAD_MESSAGE_LEVEL.ERROR);
 				if (!is_bool(_error_on_schema_validation_fail))	__spread_log(string($"'_error_on_schema_validation_fail' must be boolean, {_error_on_schema_validation_fail}"), SPREAD_MESSAGE_LEVEL.ERROR);
 				if (!is_bool(_force))	__spread_log(string($"'_force' must be boolean, {_force}"), SPREAD_MESSAGE_LEVEL.ERROR);
@@ -1203,15 +1228,14 @@
 				var _expected_fields = _shape_is_rows ? __spread_range_get_columns(_range_address_or_name) : __spread_range_get_rows(_range_address_or_name);
 				var _expected_items = _shape_is_rows ? __spread_range_get_rows(_range_address_or_name) : __spread_range_get_columns(_range_address_or_name);
 				
-				if (!is_numeric(_item_offset) || _item_offset < 0 || _item_offset >= _expected_items)	__spread_log(string($"Invalid item offset, {_item_offset}, must be within the number of items in range"), SPREAD_MESSAGE_LEVEL.ERROR);
+				if (!is_numeric(_item_offset) || floor(_item_offset) != _item_offset || _item_offset < 0 || _item_offset >= _expected_items)	__spread_log(string($"Invalid item offset, {_item_offset}, must be integer and within the number of items in range"), SPREAD_MESSAGE_LEVEL.ERROR);
 				if (array_length(_field_definition) != _expected_fields)	__spread_log(string($"_field_definition array must be of size {_expected_fields}, since the chosen shape is {_shape_is_rows ? "rows" : "columns"} and provided range is {_range_address_or_name}"), SPREAD_MESSAGE_LEVEL.ERROR);
-				var _field_error = false;
 				var _num_id = 0;
 				var _key_field_idx = undefined;
 				var _field_names = [];
 				for (var _i=0, _n=array_length(_field_definition); _i<_n; _i++) {
 					var _elem = _field_definition[_i];
-					_field_error = _field_error || !is_instanceof(_elem, Spread_Schema);
+					if (!is_instanceof(_elem, Spread_Schema))	__spread_log($"Field definition at index {_i} is not a Spread Schema.", SPREAD_MESSAGE_LEVEL.ERROR);
 					
 					if (array_get_index(_field_names, _elem.name) != -1) {
 						__spread_log(string($"Duplicate field name in field definition, {_elem.name}"), SPREAD_MESSAGE_LEVEL.ERROR);
@@ -1226,7 +1250,6 @@
 					}					
 				}
 				
-				if (_field_error)	__spread_log(string($"Items of {_field_definition} array must be of type Spread_Field structs"), SPREAD_MESSAGE_LEVEL.ERROR);
 				if (_num_id != 1)	__spread_log(string($"There must be exactly one field defined as key or Spread_ID, instead got {_num_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
 						
 				
@@ -1235,7 +1258,7 @@
 				// Start 
 				var _rng = string_split(_range_address_or_name, ":");
 				if (array_length(_rng) == 1)	array_push(_rng, _rng[0]);
-				if (array_length(_rng) > 2 || string_length(string_letters(_rng[0])) == 0 || string_length(string_digits(_rng[0])) == 0 || string_length(string_letters(_rng[1])) == 0 || string_length(string_digits(_rng[1])) == 0)	__spread_log($"Invalid range provided, {_range_formula_or_name}", SPREAD_MESSAGE_LEVEL.ERROR);
+				if (array_length(_rng) > 2 || string_length(string_letters(_rng[0])) == 0 || string_length(string_digits(_rng[0])) == 0 || string_length(string_letters(_rng[1])) == 0 || string_length(string_digits(_rng[1])) == 0)	__spread_log($"Invalid range provided, {_range_address_or_name}", SPREAD_MESSAGE_LEVEL.ERROR);
 				
 				_rng[0] = string_upper(string_lettersdigits(_rng[0]));
 				_rng[1] = string_upper(string_lettersdigits(_rng[1]));
@@ -1364,6 +1387,9 @@
 				var _metadata = global.Spread.table_metadata[$ _table_name_id];
 				if (!struct_exists(global.Spread.connections, _metadata.source_connection))	__spread_log(string($"Source XLSX/sheet has disconnected, {_metadata.source_connection}"), SPREAD_MESSAGE_LEVEL.ERROR);
 				var _conn = global.Spread.connections[$ _metadata.source_connection];
+				
+				// Delete the previous directory as it's now based on SHA-1
+				if (directory_exists(_conn.connection_cache_folder)) directory_destroy(_conn.connection_cache_folder);
 				
 				spread_connect_xlsx(_conn.connection_source, _metadata.source_connection, true);				
 				spread_define_table(_table_name_id, _metadata.source_connection, _metadata.source_sheet, _metadata.source_range, _metadata.field_definition, _metadata.item_offset, _metadata.shape_is_rows, _metadata.error_on_schema_validation_fail, _metadata.item_validation_function, _metadata.table_validation_function, true);

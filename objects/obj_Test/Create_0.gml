@@ -106,7 +106,7 @@ for  (var _k=0, _n=array_length(_keys); _k<_n; _k++) {
 	show_debug_message($"{_key}: {_cell}");
 }
 
-show_debug_message(spread_get_table_metadata("tbl_items"));
+show_debug_message($"Metadata: {spread_get_table_metadata("tbl_items")}");
 
 //show_debug_message(spread_get_item_keys("tbl_items"));
 

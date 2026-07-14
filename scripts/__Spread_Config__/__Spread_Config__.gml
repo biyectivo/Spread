@@ -8,3 +8,4 @@
 // Try to not mess with these						
 #macro		SPREAD_REGEX_SPACE_ESCAPE_CHAR			"¬"
 #macro		SPREAD_REGEX_PROCESSING_CHAR			"«"
+#macro		SPREAD_REGEX_DEFAULT_FLAGS				"s"
