@@ -110,8 +110,8 @@ show_debug_message(spread_get_table_metadata("tbl_items"));
 
 //show_debug_message(spread_get_item_keys("tbl_items"));
 
-spread_disconnect("db_game_data");
 
+//spread_disconnect("db_game_data");
 //show_debug_message(json_stringify(global.Spread, true))
 
-game_end();
+//game_end();

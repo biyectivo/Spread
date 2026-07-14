@@ -572,7 +572,7 @@
 			
 			// Open rel sheet XML
 			var _conn = global.Spread.connections[$ _connection_id];
-			var _folder = string($"{_conn.connection_source}/");
+			var _folder = _conn.connection_cache_folder;
 			var _sheet_file = _conn.sheets[$ _sheet_id].file;
 			var _file = string($"xl/{_sheet_file}");
 			
@@ -587,7 +587,7 @@
 			var _json = [					
 				{
 					"instruction": "sub", // get rid of "empty" cells (due to merged ranges mainly)
-					"string_file": game_save_id+_folder+_file,
+					"string_file": _folder+_file,
 					"pattern": "<c ([^>]+)/>",
 					"replacement": ""
 				},
@@ -744,16 +744,17 @@
 			 * @desc	Establishes a connection to an XLSX file
 			 * @param	{string}	_filename				the filename. If Gamemaker is running sandboxed, the path relative to the datafiles/ folder; if not, the full path to the file
 			 * @param	{string}	_connection_name		a unique identifer to name the connection (e.g. "db_items", etc.)
+			 * @param	{bool}		_force					whether to redo the connection
 			 * @returns {bool}		whether the connection was succcessful
 			 */
 			function spread_connect_xlsx(_filename, _connection_name, _force=false) {
 				if (!is_bool(_force))	__spread_log(string($"'_force' must be boolean, {_force}"), SPREAD_MESSAGE_LEVEL.ERROR);
-				if (struct_exists(global.Spread.connections, _connection_name) && !_force)		__spread_log(string($"Connection already exists, {_connection_name}, type {global.Spread.connections[$ _connection_name].connection_type}, pointing to {global.Spread.connections[$ _connection_name].connection_source}, and force was not specified"), SPREAD_MESSAGE_LEVEL.ERROR);
+				if (!_force && struct_exists(global.Spread.connections, _connection_name))		__spread_log(string($"Connection already exists, {_connection_name}, type {global.Spread.connections[$ _connection_name].connection_type}, pointing to {global.Spread.connections[$ _connection_name].connection_source}, and force was not specified"), SPREAD_MESSAGE_LEVEL.ERROR);
 				
 				// Handle prod mode
 				if ( spread_prod_mode() ) {
 					__spread_log(string($"Prod mode detected, skipping XLSX connection"),  SPREAD_MESSAGE_LEVEL.INFO);
-					if (file_exists(_filename))		__spread_log(string($"Prod mode detected - removing the source XLSX {_filename} is highly recommended"),  SPREAD_MESSAGE_LEVEL.WARNING);
+					//if (file_exists(_filename))		__spread_log(string($"Prod mode detected - removing the source XLSX {_filename} is highly recommended"),  SPREAD_MESSAGE_LEVEL.WARNING);
 					exit;
 				}
 				
@@ -767,7 +768,7 @@
 				buffer_delete(_buffer);
 			
 				// Delete old directory
-				var _folder = string($"{_filename}/");	
+				var _folder = string($"{game_save_id}{_filename}_contents/");	
 				if (directory_exists(_folder)) directory_destroy(_folder);				
 				
 			
@@ -777,7 +778,7 @@
 				if (!directory_exists(_folder))		__spread_log(string($"Could not process contents of XLSX spreadsheet, {_filename}"),  SPREAD_MESSAGE_LEVEL.ERROR);
 			
 				global.Spread.connections[$ _connection_name] = {
-					connection_type: "xlsx",
+					connection_type: "XLSX",
 					connection_source: _filename,
 					connection_cache_folder: _folder,
 					source_sha1: _sha1,
@@ -806,37 +807,37 @@
 					var _json = [					
 						{
 							"instruction": "findall", // title
-							"string_file": game_save_id+_folder+"/docProps/core.xml",
+							"string_file": _folder+"/docProps/core.xml",
 							"pattern": "<dc:title[^>]*>([^<]*)</dc:title>"
 						},
 						{
 							"instruction": "findall", // creator
-							"string_file": game_save_id+_folder+"/docProps/core.xml",
+							"string_file": _folder+"/docProps/core.xml",
 							"pattern": "<dc:creator[^>]*>([^<]*)</dc:creator>"
 						},
 						{
 							"instruction": "findall", // last modified by
-							"string_file": game_save_id+_folder+"/docProps/core.xml",
+							"string_file": _folder+"/docProps/core.xml",
 							"pattern": "<cp:lastModifiedBy[^>]*>([^<]*)</cp:lastModifiedBy>"
 						},
 						{
 							"instruction": "findall", // date created
-							"string_file": game_save_id+_folder+"/docProps/core.xml",
+							"string_file": _folder+"/docProps/core.xml",
 							"pattern": "<dcterms:created[^>]*>([^<]*)</dcterms:created>"
 						},
 						{
 							"instruction": "findall", // date modified
-							"string_file": game_save_id+_folder+"/docProps/core.xml",
+							"string_file": _folder+"/docProps/core.xml",
 							"pattern": "<dcterms:modified[^>]*>([^<]*)</dcterms:modified>"
 						},
 						{
 							"instruction": "findall", // subject
-							"string_file": game_save_id+_folder+"/docProps/core.xml",
+							"string_file": _folder+"/docProps/core.xml",
 							"pattern": "<dc:subject[^>]*>([^<]*)</dc:subject>"
 						},
 						{
 							"instruction": "findall", // description
-							"string_file": game_save_id+_folder+"/docProps/core.xml",
+							"string_file": _folder+"/docProps/core.xml",
 							"pattern": "<dc:description[^>]*>([^<]*)</dc:description>"
 						},
 					];
@@ -880,12 +881,12 @@
 					var _json = [					
 						{
 							"instruction": "findall", // application
-							"string_file": game_save_id+_folder+"/docProps/app.xml",
+							"string_file": _folder+"/docProps/app.xml",
 							"pattern": "<Application[^>]*>([^<]*)</Application>"
 						},
 						{
 							"instruction": "findall", // creator
-							"string_file": game_save_id+_folder+"/docProps/app.xml",
+							"string_file": _folder+"/docProps/app.xml",
 							"pattern": "<AppVersion[^>]*>([^<]*)</AppVersion>"
 						},
 					];
@@ -923,18 +924,18 @@
 					var _json = [
 						{
 							"instruction": "findall", // calculation mode
-							"string_file": game_save_id+_folder+"/xl/workbook.xml",
+							"string_file": _folder+"/xl/workbook.xml",
 							"pattern": "( calcMode=\"[^\"]+\")"
 						},
 						{
 							"instruction": "findall", // defined names (only ranges are parsed)
-							"string_file": game_save_id+_folder+"/xl/workbook.xml",
+							"string_file": _folder+"/xl/workbook.xml",
 							"pattern": "<definedName name=\"([^\"]+)\"[^>]*>([^!]*)!?([A-Za-z0-9\$:]*)</definedName>"
 							
 						},
 						{
 							"instruction": "sub",
-							"string_file": game_save_id+_folder+"/xl/workbook.xml",
+							"string_file": _folder+"/xl/workbook.xml",
 							"pattern": "(\"[^\"]*\") ",
 							"replacement": "${1},"
 						},
@@ -1007,7 +1008,7 @@
 					var _json = [
 						{
 							"instruction": "findall", // relationships
-							"string_file": game_save_id+_folder+"/xl/_rels/workbook.xml.rels",
+							"string_file": _folder+"/xl/_rels/workbook.xml.rels",
 							"pattern": "Id=(\"[^\"]+\").*?Target=(\"[^\"]+\")"
 						},
 					];
@@ -1059,7 +1060,7 @@
 					var _json = [					
 						{
 							"instruction": "findall", // strings
-							"string_file": game_save_id+_folder+"/xl/sharedStrings.xml",
+							"string_file": _folder+"/xl/sharedStrings.xml",
 							"pattern": "<si><t[^>]*?>([^<]+)</t></si>"
 						}
 					];
@@ -1113,9 +1114,11 @@
 				var _conn = global.Spread.connections[$ _connection_name];
 				
 				
-				if (_conn.connection_type == "xlsx") {
+				if (_conn.connection_type == "XLSX") {
 					if (directory_exists(_conn.connection_cache_folder)) directory_destroy(_conn.connection_cache_folder);
 				}
+				
+				struct_remove(global.Spread.connections, _connection_name);
 				
 				__spread_log($"Disconnected from connection {_connection_name} (source file: {_conn.connection_source})", SPREAD_MESSAGE_LEVEL.INFO);
 			}
@@ -1142,7 +1145,7 @@
 			 * @return	{struct_or_array}	a struct or array (depending on load mode) with the data fetched from the sheet
 			 */
 			function spread_define_table(_table_name_id, _connection_id, _sheet_id, _range_address_or_name, _field_definition, _item_offset = 0, _shape_is_rows=true,  _error_on_schema_validation_fail=true, _item_validation_function = function() { return true; }, _table_validation_function = function() { return true; }, _force = false) {
-				if (array_get_index(struct_get_names(global.Spread.tables), _table_name_id) != -1)	__spread_log(string($"Table name already exists, {_table_name_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
+				if (!_force && array_get_index(struct_get_names(global.Spread.tables), _table_name_id) != -1)	__spread_log(string($"Table name already exists, {_table_name_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
 				
 				// Handle prod mode
 				if ( spread_prod_mode() ) {
@@ -1161,12 +1164,20 @@
 					global.Spread.table_metadata[$ _table_name_id] = {
 						source_type: "JSON",
 						source_connection: undefined, 
+						source_sheet: undefined,
 						source_table: _table_name_id,
 						source_range: undefined,
 						source_offset: undefined,
 						table_loaded: date_datetime_string(date_current_datetime()),
 						table_sha1: sha1_string_utf8(json_stringify(_ranges)),
-						output_json_bundle_filename: _filename
+						output_json_bundle_filename: _filename,			
+						
+						field_definition: _field_definition,
+						item_offset: _item_offset,
+						shape_is_rows: _shape_is_rows,
+						error_on_schema_validation_fail: _error_on_schema_validation_fail,
+						item_validation_function: _item_validation_function,
+						table_validation_function: _table_validation_function,		
 					};	
 					
 					exit;
@@ -1327,12 +1338,35 @@
 					source_type: "XLSX",
 					source_connection: _connection_id, 
 					source_table: _table_name_id,
+					source_sheet: _sheet_id,
 					source_range: _range_address_or_name,
 					source_offset: _item_offset,
 					table_loaded: date_datetime_string(date_current_datetime()),
 					table_sha1: sha1_string_utf8(json_stringify(_ranges)),
-					output_json_bundle_filename: _filename
+					output_json_bundle_filename: _filename,
+					
+					field_definition: _field_definition,
+					item_offset: _item_offset,
+					shape_is_rows: _shape_is_rows,
+					error_on_schema_validation_fail: _error_on_schema_validation_fail,
+					item_validation_function: _item_validation_function,
+					table_validation_function: _table_validation_function,					
 				};				
+			}
+			
+			/**
+			 * @desc	Forces reload of a previously defined table. Use within try...catch statements to prevent replacing previously loaded good data with failed/incomplete data and/or avoid your game tests from crashing 
+			 * @param {any} _table_name_id Description
+			 */
+			function spread_reload_table(_table_name_id) {
+				if (array_get_index(struct_get_names(global.Spread.tables), _table_name_id) == -1)	__spread_log(string($"Table name does not exist, {_table_name_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
+				
+				var _metadata = global.Spread.table_metadata[$ _table_name_id];
+				if (!struct_exists(global.Spread.connections, _metadata.source_connection))	__spread_log(string($"Source XLSX/sheet has disconnected, {_metadata.source_connection}"), SPREAD_MESSAGE_LEVEL.ERROR);
+				var _conn = global.Spread.connections[$ _metadata.source_connection];
+				
+				spread_connect_xlsx(_conn.connection_source, _metadata.source_connection, true);				
+				spread_define_table(_table_name_id, _metadata.source_connection, _metadata.source_sheet, _metadata.source_range, _metadata.field_definition, _metadata.item_offset, _metadata.shape_is_rows, _metadata.error_on_schema_validation_fail, _metadata.item_validation_function, _metadata.table_validation_function, true);
 			}
 			
 		#endregion
