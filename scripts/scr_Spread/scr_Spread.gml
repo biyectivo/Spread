@@ -1,7 +1,7 @@
 ///@feather ignore all
 
 #macro		SPREAD_VERSION						"0.1"
-#macro		SPREAD_LOG_PREFIX					string("[Spread v{SPREAD_VERSION}]:")
+#macro		SPREAD_LOG_PREFIX					string($"[Spread v{SPREAD_VERSION}]:")
 
 
 #region Init
@@ -201,6 +201,11 @@
 				}
 				return _validation;
 			}
+		}
+		
+		static getBoolValue = function(_value) {
+			_value = (array_contains(self.truthy, _value) ? true : (array_contains(self.falsy, _value) ? false : undefined));
+			return _value;
 		}
 		
 		static toString = function() {
@@ -1351,6 +1356,9 @@
 									if (is_instanceof(_field, Spread_Num) && _field.treat_as_dates) {
 										var _date = date_inc_day(date_create_datetime(1970, 1, 1, 0, 0, 0), _value-25569);										
 										_values[$ _field.name] = string(date_get_year(_date)) + "-" + __spread_pad(date_get_month(_date), 2) + "-" + __spread_pad(date_get_day(_date), 2);
+									}
+									else if (is_instanceof(_field, Spread_Boolean)) {
+										_values[$ _field.name] = _field.getBoolValue(_value);
 									}
 									else {
 										_values[$ _field.name] = _value;
