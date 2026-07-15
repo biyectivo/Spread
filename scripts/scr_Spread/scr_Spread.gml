@@ -1,7 +1,7 @@
 ///@feather ignore all
 
 #macro		SPREAD_VERSION						"0.1"
-#macro		SPREAD_LOG_PREFIX					string($"[Spread v{SPREAD_VERSION}]:")
+#macro		SPREAD_LOG_PREFIX					string("[Spread v{SPREAD_VERSION}]:")
 
 
 #region Init
@@ -38,6 +38,19 @@
 	function Spread_Schema() constructor {
 	}
 	
+	/**
+	 * @desc	constructor for a numeric schema for Spread fields
+	 * @param	{string}		_name 						the field name
+	 * @param	{bool}			_required					whether it's required or not
+	 * @param	{bool}			[_is_integer]=false			whether it's an integer or accepts floating point values
+	 * @param	{real}			[_min]=-infinity			minimum value
+	 * @param	{real}			[_max]=infinity				maximum value
+	 * @param	{bool}			[_exclusive_min]=false		whether the minimum value cannot be a valid value (i.e. > instead of >= comparison)
+	 * @param	{bool}			[_exclusive_max]=false		whether the maximum value cannot be a valid value (i.e. < instead of <= comparison)
+	 * @param	{array}			[_allowed_list]=[]			an array with an allowed list of numbers, useful for catalogs/categorical data/enums
+	 * @param	{array}			[_forbidden_list]=[]		an array with a forbidden list of numbers, useful for catalogs/categorical data/enums
+	 * @param	{bool}			[_treat_as_dates]=false		whether to treat the number as a numeric date XLSX (this means the value will be imported as YYYY-MM-DD in the actual table)
+	 */
 	function Spread_Num(_name, _required, _is_integer=false, _min=-infinity, _max=infinity, _exclusive_min=false, _exclusive_max=false, _allowed_list=[], _forbidden_list=[], _treat_as_dates=false) : Spread_Schema() constructor {
 		if (!is_string(_name))		__spread_log($"'_name' must be a string: {_name}", SPREAD_MESSAGE_LEVEL.ERROR);
 		self.name = _name;
@@ -86,6 +99,19 @@
 		}
 	}
 	
+	/**
+	 * @desc	constructor for a character schema for Spread fields
+	 * @param	{string}		_name 						the field name
+	 * @param	{bool}			_required					whether it's required or not
+	 * @param	{real}			[_min_length]=0				minimum length of the string
+	 * @param	{real}			[_max_length]=infinity		maximum length of the string
+	 * @param	{array}			[_allowed_list]=[]			an array with an allowed list of strings, useful for catalogs/categorical data/enums
+	 * @param	{array}			[_forbidden_list]=[]		an array with a forbidden list of strings, useful for catalogs/categorical data/enums
+	 * @param	{bool}			[_contains]=""				a string to check it's contained into the value
+	 * @param	{bool}			[_does_not_contain]=""		a string to check it's NOT contained into the value
+	 * @param	{bool}			[_starts_with]=""			a string to check whether the value starts with it
+	 * @param	{bool}			[_ends_with]=""				a string to check iwhether the value ends with it
+	 */
 	function Spread_String(_name, _required, _min_length=0, _max_length=infinity, _allowed_list=[], _forbidden_list=[], _contains="", _does_not_contain="", _starts_with="", _ends_with="") : Spread_Schema() constructor {
 		if (!is_string(_name))		__spread_log($"'_name' must be a string: {_name}", SPREAD_MESSAGE_LEVEL.ERROR);
 		self.name = _name;
@@ -135,6 +161,16 @@
 		}
 	}
 	
+	
+	
+	/**
+	 * @desc	constructor for a character schema for Spread fields
+	 * @param	{string}		_name 												the field name
+	 * @param	{bool}			_required											whether it's required or not
+	 * @param	{bool}			[_strict]=false										whether it accepts values other than true or false (defined by the _truthy and _falsy arrays) to interpret boolean true or false
+	 * @param	{bool}			[_truthy]=["true", "TRUE", true, 1, "yes", "Y"]		an array of strings and numbers that will be processed as Gamemaker true (if not strict)
+	 * @param	{bool}			[_falsy]=["false", "FALSE", false, 0, "no", "N"]	an array of strings and numbers that will be processed as Gamemaker false (if not strict)
+	 */
 	function Spread_Boolean(_name, _required, _strict = false, _truthy = ["true", "TRUE", true, 1, "yes", "Y"], _falsy = ["false", "FALSE", false, 0, "no", "N"]) : Spread_Schema() constructor {
 		if (!is_string(_name))		__spread_log($"'_name' must be a string: {_name}", SPREAD_MESSAGE_LEVEL.ERROR);
 		self.name = _name;
@@ -172,6 +208,12 @@
 		}
 	}
 	
+	
+	
+	/**
+	 * @desc	constructor for a Primary Key schema for Spread fields. ALL tables must have exactly ONE field defined with this schema. Also note IDs are required by default.
+	 * @param	{string}		_name			the field name
+	 */
 	function Spread_ID(_name) : Spread_Schema() constructor {	
 		if (!is_string(_name))		__spread_log($"'_name' must be a string: {_name}", SPREAD_MESSAGE_LEVEL.ERROR);
 		self.name = _name;
@@ -185,6 +227,13 @@
 		}
 	}
 	
+	
+	/**
+	 * @desc	constructor for a Foreign Key (FK) schema for Spread fields
+	 * @param	{string}		_name 												the field name
+	 * @param	{bool}			_required											whether it's required or not	 
+	 * @param	{string}		_foreign_table_name									the name of the target table. MUST be defined BEFORE the current table's definition and cannot self-reference the current table
+	 */
 	function Spread_FK(_name, _required, _foreign_table_name) : Spread_Schema() constructor {
 		if (!is_string(_name))		__spread_log($"'_name' must be a string: {_name}", SPREAD_MESSAGE_LEVEL.ERROR);
 		if (!spread_table_exists(_foreign_table_name))	__spread_log($"'_foreign_table_name' {_foreign_table_name} has not yet been defined. Note that you cannot self-reference the table being created.", SPREAD_MESSAGE_LEVEL.ERROR);
