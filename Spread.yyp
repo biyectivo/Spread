@@ -10,9 +10,9 @@
   },
   "defaultScriptType":1,
   "Folders":[
-    {"$GMFolder":"","%Name":"Extensions","folderPath":"folders/Spread/Dependencies/Extensions.yy","name":"Extensions","resourceType":"GMFolder","resourceVersion":"2.0",},
     {"$GMFolder":"","%Name":"Spread","folderPath":"folders/Spread.yy","name":"Spread","resourceType":"GMFolder","resourceVersion":"2.0",},
     {"$GMFolder":"","%Name":"Dependencies","folderPath":"folders/Spread/Dependencies.yy","name":"Dependencies","resourceType":"GMFolder","resourceVersion":"2.0",},
+    {"$GMFolder":"","%Name":"Extensions","folderPath":"folders/Spread/Dependencies/Extensions.yy","name":"Extensions","resourceType":"GMFolder","resourceVersion":"2.0",},
     {"$GMFolder":"","%Name":"Internal","folderPath":"folders/Spread/Internal.yy","name":"Internal","resourceType":"GMFolder","resourceVersion":"2.0",},
     {"$GMFolder":"","%Name":"Test","folderPath":"folders/Test.yy","name":"Test","resourceType":"GMFolder","resourceVersion":"2.0",},
   ],

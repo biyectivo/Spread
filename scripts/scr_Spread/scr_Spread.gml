@@ -1226,7 +1226,7 @@
 				// Handle prod mode
 				if ( spread_prod_mode() ) {
 					__spread_log(string($"Prod mode detected - importing the JSON bundle instead"),  SPREAD_MESSAGE_LEVEL.INFO);
-					var _dir = working_directory + (string_pos("/", SPREAD_JSON_BUNDLE_PATHS) == 0 ? SPREAD_JSON_BUNDLE_PATHS+"/" : SPREAD_JSON_BUNDLE_PATHS);
+					var _dir = (string_pos("/", SPREAD_JSON_BUNDLE_PATHS) == 0 ? SPREAD_JSON_BUNDLE_PATHS+"/" : SPREAD_JSON_BUNDLE_PATHS);
 					var _ext = string_pos(".", SPREAD_JSON_BUNDLE_EXTENSION) == 0 ? "."+SPREAD_JSON_BUNDLE_EXTENSION : SPREAD_JSON_BUNDLE_EXTENSION;
 					var _filename = _dir+_table_name_id+_ext;
 					if (!file_exists(_filename))		__spread_log(string($"No JSON bundle found for {_table_name_id} at {_filename}"),  SPREAD_MESSAGE_LEVEL.ERROR);
@@ -1434,10 +1434,11 @@
 			}
 			
 			/**
-			 * @desc	Forces reload of a previously defined table. Use within try...catch statements to prevent replacing previously loaded good data with failed/incomplete data and/or avoid your game tests from crashing 
+			 * @desc	Forces reload of a previously defined table. Use within try...catch statements to prevent replacing previously loaded good data with failed/incomplete data and/or avoid your game tests from crashing. Cannot be used in prod mode.
 			 * @param {any} _table_name_id Description
 			 */
 			function spread_reload_table(_table_name_id) {
+				if (spread_prod_mode())	__spread_log(string($"Cannot reload tables in PROD mode, {_table_name_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
 				if (array_get_index(struct_get_names(global.Spread.tables), _table_name_id) == -1)	__spread_log(string($"Table name does not exist, {_table_name_id}"), SPREAD_MESSAGE_LEVEL.ERROR);
 				
 				var _metadata = global.Spread.table_metadata[$ _table_name_id];
