@@ -11,7 +11,6 @@ spread_define_table("tbl_items", "db_game_data", "Items", "b3:i8", [
 ]
 );
 
-
 //spread_define_table("tbl_items", "db_game_data", "Monsters", "c5:f8", [
 //	new Spread_ID("monster"),
 //	new Spread_Num("hp",true,true),
