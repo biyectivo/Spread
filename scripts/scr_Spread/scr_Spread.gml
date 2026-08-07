@@ -1,7 +1,7 @@
 ///@feather ignore all
 
 
-#macro		SPREAD_VERSION							"0.2"
+#macro		SPREAD_VERSION							"0.3"
 #macro		SPREAD_LOG_PREFIX						string($"[Spread v{SPREAD_VERSION}]:")			
 #macro		SPREAD_REGEX_SPACE_ESCAPE_CHAR			"¬"
 #macro		SPREAD_REGEX_PROCESSING_CHAR			"«"
@@ -1202,6 +1202,19 @@
 				
 				__spread_log($"Disconnected from connection {_connection_name} (source file: {_conn.connection_source})", SPREAD_MESSAGE_LEVEL.INFO);
 				
+				return true;
+			}
+			
+			/**
+			 * @desc	Disconnects from all active Spread conections
+			 * @return	{boolean}	true
+			 */
+			function spread_disconnect_all() {
+				var _connections = struct_get_names(global.Spread.connections);
+				for (var _i=0, _n=array_length(_connections); _i<_n; _i++) {
+					var _connection_name = _connections[_i];
+					spread_disconnect(_connection_name);					
+				}
 				return true;
 			}
 			
