@@ -1,20 +1,32 @@
 ///@feather ignore all
 
 
-#macro		SPREAD_VERSION							"0.1"
+#macro		SPREAD_VERSION							"0.2"
 #macro		SPREAD_LOG_PREFIX						string($"[Spread v{SPREAD_VERSION}]:")			
 #macro		SPREAD_REGEX_SPACE_ESCAPE_CHAR			"¬"
 #macro		SPREAD_REGEX_PROCESSING_CHAR			"«"
 #macro		SPREAD_REGEX_DEFAULT_FLAGS				"s"
 
 #region Init
+	
+	function __Spread_Init() {	
+		global.Spread = {};
 
-	global.Spread = {};
-
-	global.Spread.connections = {};
-	global.Spread.tables = {};
-	global.Spread.table_metadata = {};
+		global.Spread.connections = {};
+		global.Spread.tables = {};
+		global.Spread.table_metadata = {};		
 		
+		global.Spread.enums = {};
+		global.Spread.enums[$ "SPREAD_MODE"] = ["DEV", "PROD"];
+		global.Spread.enums[$ "MESSAGE_LEVEL"] = ["INFO", "WARNING", "ERROR", "SYSTEM"];
+		
+		global.Spread.simulate_prod_mode = false;
+		if (GM_is_sandboxed && string_pos(filename_path(GM_project_filename), SPREAD_JSON_BUNDLE_PATHS))	__spread_log($"Cannot use the selected value '{SPREAD_JSON_BUNDLE_PATHS}' as a folder since you are running Gamemaker in sandboxed mode. Consider disabling the sandbox or use a path relative to your app data folder", SPREAD_MESSAGE_LEVEL.ERROR, true);
+	}
+	
+	
+	__Spread_Init();
+	
 #endregion
 
 #region Enums 
@@ -26,14 +38,6 @@
 		SYSTEM
 	}
 	
-#endregion
-
-#region String version of enums
-
-	global.Spread.enums = {};
-	global.Spread.enums[$ "SPREAD_MODE"] = ["DEV", "PROD"];
-	global.Spread.enums[$ "MESSAGE_LEVEL"] = ["INFO", "WARNING", "ERROR", "SYSTEM"];
-
 #endregion
 
 #region Validation Schemas
@@ -811,8 +815,7 @@
 				
 				// Handle prod mode
 				if ( spread_prod_mode() ) {
-					__spread_log(string($"Prod mode detected, skipping XLSX connection"),  SPREAD_MESSAGE_LEVEL.INFO);
-					//if (file_exists(_filename))		__spread_log(string($"Prod mode detected - removing the source XLSX {_filename} is highly recommended"),  SPREAD_MESSAGE_LEVEL.WARNING);
+					__spread_log(string($"Prod mode detected - skipping XLSX connection for filename {_filename} connection name {_connection_name}"),  SPREAD_MESSAGE_LEVEL.INFO);
 					exit;
 				}
 				
@@ -1228,7 +1231,7 @@
 				
 				// Handle prod mode
 				if ( spread_prod_mode() ) {
-					__spread_log(string($"Prod mode detected - importing the JSON bundle instead"),  SPREAD_MESSAGE_LEVEL.INFO);
+					__spread_log(string($"Prod mode detected - importing the JSON bundle instead for table {_table_name_id} and connection name {_connection_id}"),  SPREAD_MESSAGE_LEVEL.INFO);
 					var _dir = (string_pos("/", SPREAD_JSON_BUNDLE_PATHS) == 0 ? SPREAD_JSON_BUNDLE_PATHS+"/" : SPREAD_JSON_BUNDLE_PATHS);
 					var _ext = string_pos(".", SPREAD_JSON_BUNDLE_EXTENSION) == 0 ? "."+SPREAD_JSON_BUNDLE_EXTENSION : SPREAD_JSON_BUNDLE_EXTENSION;
 					var _filename = _dir+_table_name_id+_ext;
@@ -1546,8 +1549,19 @@
 				return	struct_exists(global.Spread.tables, _table_id);
 			}
 			
+			function __spread_prod_mode_simulation(_enable) {
+				if (_enable && GM_build_date == "exe")	__spread_log($"Cannot simulate prod mode in a build!", SPREAD_MESSAGE_LEVEL.ERROR, true);
+				global.Spread.simulate_prod_mode = _enable;
+				if (_enable)	__spread_log($"Prod mode simulation enabled! All subsequent Spread calls will consider Prod mode even if not selected in Config (currently Dev mode set is {SPREAD_DEV_MODE})", SPREAD_MESSAGE_LEVEL.SYSTEM);
+				else			__spread_log($"Prod mode simulation disabled - Spread calls from this point onwards continue as normal, Dev mode set in Config is {SPREAD_DEV_MODE}", SPREAD_MESSAGE_LEVEL.SYSTEM);
+			}
+			
+			/**
+				* @desc	checks whether Spread is in prod mode
+				* @returns {bool} whether Spread is in prod mode
+				*/
 			function spread_prod_mode() {
-				return (!SPREAD_DEV_MODE || !SPREAD_ALLOW_DEV_MODE_OUTSIDE_IDE && GM_build_type == "exe" );
+				return (global.Spread.simulate_prod_mode || !SPREAD_DEV_MODE || !SPREAD_ALLOW_DEV_MODE_OUTSIDE_IDE && GM_build_type == "exe" );
 			}
 				
 		#endregion
