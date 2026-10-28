@@ -1,7 +1,7 @@
 ///@feather ignore all
 
 
-#macro		SPREAD_VERSION							"0.3"
+#macro		SPREAD_VERSION							"0.4"
 #macro		SPREAD_LOG_PREFIX						string($"[Spread v{SPREAD_VERSION}]:")			
 #macro		SPREAD_REGEX_SPACE_ESCAPE_CHAR			"¬"
 #macro		SPREAD_REGEX_PROCESSING_CHAR			"«"
@@ -402,7 +402,7 @@
 		
 		var _range_address = global.Spread.connections[$ _connection_id].named_ranges[$ _range_name].address;
 		if (global.Spread.connections[$ _connection_id].named_ranges[$ _range_name].sheet != _sheet_id) {
-			__spread_log(string($"Found named range {_range_name} in sheet {global.Spread.connections[$ _sheet_id].named_ranges[$ _range_name].sheet}, which resolves to {_range_address}, but it seems it was requested from sheet {_sheet_id} instead! Double check the range name and/or sheet."), SPREAD_MESSAGE_LEVEL.WARNING);						
+			__spread_log(string($"Found named range {_range_name} in sheet {global.Spread.connections[$ _connection_id].named_ranges[$ _range_name].sheet}, which resolves to {_range_address}, but it seems it was requested from sheet {_sheet_id} instead! Double check the range name and/or sheet."), SPREAD_MESSAGE_LEVEL.WARNING);						
 		}
 		else {
 			__spread_log(string($"Found named range {_range_name} in sheet {_sheet_id}, which resolves to {_range_address}"), SPREAD_MESSAGE_LEVEL.INFO);
